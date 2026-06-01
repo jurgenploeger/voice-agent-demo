@@ -223,8 +223,12 @@ export default function Controls({
         </div>
 
         <div className={styles.colorActions}>
-          {/* Both buttons stay mounted and collapse/expand so they animate in
-              and out (matching the colour rows) instead of jumping. */}
+          {/* Shuffle is always visible; Add color follows it and collapses/fades
+              out (matching the colour rows) at the 3-colour max instead of jumping. */}
+          <button className={styles.addColor} onClick={shuffle}>
+            <Shuffle size={14} weight="bold" />
+            Shuffle
+          </button>
           <button
             className={`${styles.addColor} ${colors.length < 3 ? "" : styles.actionHidden}`}
             onClick={addColor}
@@ -233,15 +237,6 @@ export default function Controls({
           >
             <Plus size={14} weight="bold" />
             Add color
-          </button>
-          <button
-            className={`${styles.addColor} ${colors.length >= 2 ? "" : styles.actionHidden}`}
-            onClick={shuffle}
-            aria-hidden={colors.length < 2}
-            tabIndex={colors.length >= 2 ? 0 : -1}
-          >
-            <Shuffle size={14} weight="bold" />
-            Shuffle
           </button>
         </div>
       </div>
