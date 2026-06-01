@@ -1,0 +1,230 @@
+.phone {
+  height: min(720px, calc(100dvh - 360px));
+  aspect-ratio: 390 / 844;
+  border-radius: 52px;
+  background: var(--device-bg);
+  padding: 6px;
+  /* Drop shadow removed; a hairline keeps the frame defined against the page. */
+  outline: 1px solid var(--edge);
+  outline-offset: -1px;
+  transition: background 0.4s ease, outline-color 0.4s ease;
+}
+
+.screen {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  border-radius: 46px;
+  background: var(--screen-bg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: background 0.4s ease;
+}
+
+/* On a phone, fill the whole page so it reads like a real installed app. */
+@media (max-width: 600px) {
+  .phone {
+    height: 100dvh;
+    width: 100vw;
+    aspect-ratio: auto;
+    border-radius: 0;
+    padding: 0;
+    outline: none;
+  }
+  .screen {
+    border-radius: 0;
+  }
+  /* Respect the iPhone status bar / home indicator. */
+  .header {
+    padding-top: max(18px, env(safe-area-inset-top));
+  }
+  .homeBar {
+    margin-bottom: max(9px, env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- Header icon buttons (hamburger + theme) ---------- */
+
+.iconBtn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  color: var(--text-soft);
+  transition: background 0.2s ease;
+}
+.iconBtn:hover {
+  background: var(--control-bg);
+}
+.iconBtn:active {
+  transform: scale(0.94);
+}
+
+/* ---------- Header ---------- */
+
+.header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 12px;
+}
+
+.title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.agentName {
+  font-family: var(--font-display), sans-serif;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.statusDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--text-soft);
+  animation: breathe 2.6s ease-in-out infinite;
+}
+
+/* Dot reflects state via rhythm + presence (theme-aware, stays monochrome). */
+.statusDot[data-state="idle"] {
+  background: var(--muted);
+  animation-duration: 3.8s;
+}
+.statusDot[data-state="connecting"] {
+  background: var(--muted);
+  animation-duration: 1.3s;
+}
+.statusDot[data-state="listening"] {
+  animation-duration: 2.6s;
+}
+.statusDot[data-state="thinking"] {
+  animation-duration: 1.6s;
+}
+.statusDot[data-state="speaking"] {
+  animation-duration: 0.85s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusDot {
+    animation: none;
+    opacity: 0.8;
+  }
+}
+
+.hairline {
+  flex: none;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* ---------- Visualization slot ---------- */
+
+.viz {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.vizLayer {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.vizOn {
+  opacity: 1;
+}
+
+/* ---------- Bottom dock ---------- */
+
+.dock {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px 8px;
+}
+
+.field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+}
+
+.fieldHint {
+  font-size: 13.5px;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+.mic {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);
+  transition: transform 0.18s ease, background 0.4s ease, color 0.4s ease,
+    box-shadow 0.2s ease;
+}
+.mic:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 20px -7px rgba(0, 0, 0, 0.55);
+}
+.mic:active {
+  transform: scale(0.94);
+}
+
+.homeBar {
+  flex: none;
+  width: 128px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--home-bar);
+  opacity: 0.85;
+  margin: 6px auto 9px;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}

@@ -1,0 +1,326 @@
+.stage {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 24px;
+}
+@media (max-width: 600px) {
+  .stage {
+    padding: 0;
+    gap: 0;
+  }
+}
+
+/* Desktop: controls below the phone. */
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
+  width: min(390px, 90vw);
+}
+
+/* ---------- Page theme toggle (desktop, top-right) ---------- */
+
+.themeToggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: var(--device-bg);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  transition: background 0.2s ease, transform 0.16s ease;
+}
+.themeToggle:hover {
+  background: var(--control-bg);
+  transform: translateY(-1px);
+}
+.themeToggle:active {
+  transform: scale(0.94);
+}
+
+/* ---------- Settings bottom sheet (iOS-style, mobile) ---------- */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.sheetScrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 0.32s ease;
+}
+
+.sheetPanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 88%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 20px max(20px, env(safe-area-inset-bottom));
+  background: var(--device-bg);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -12px 40px -12px rgba(0, 0, 0, 0.4);
+  transform: translateY(100%);
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sheetOpen {
+  pointer-events: auto;
+}
+.sheetOpen .sheetScrim {
+  opacity: 1;
+}
+.sheetOpen .sheetPanel {
+  transform: translateY(0);
+}
+
+.sheetGrabber {
+  width: 38px;
+  height: 5px;
+  margin: 2px auto 8px;
+  border-radius: 999px;
+  background: var(--muted);
+  opacity: 0.5;
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.sheetTitle {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.sheetClose {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -4px;
+  border-radius: 999px;
+  color: var(--text-soft);
+  transition: background 0.2s ease;
+}
+.sheetClose:hover {
+  background: var(--control-bg);
+}
+
+.sheetBody {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  overflow-y: auto;
+}
+
+/* Each control stacks its label above the control itself. */
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.controlLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- Hue slider (monochrome chrome) ---------- */
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Thin track — its fill comes from --track-bg, set per slider below. */
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track-bg, var(--control-bg));
+}
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--track-bg, var(--control-bg));
+}
+
+/* Color slider: a full, saturated hue spectrum signals what it does. */
+.hueTrack {
+  --track-bg: linear-gradient(
+    90deg,
+    hsl(0, 95%, 55%), hsl(60, 95%, 50%), hsl(120, 90%, 45%),
+    hsl(180, 90%, 45%), hsl(240, 95%, 60%), hsl(300, 95%, 58%), hsl(360, 95%, 55%)
+  );
+}
+
+/* A colour row: hue slider + hex field + optional remove button. */
+.colorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hexInput {
+  flex: none;
+  width: 76px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: none;
+  background: var(--control-bg);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+  color: var(--text);
+  font-family: var(--font-geist-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.hexInput:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--muted);
+}
+
+.colorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.colorRemove {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--control-bg);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.colorRemove:hover {
+  color: var(--text-soft);
+  background: var(--seg-hover-bg);
+}
+
+.addColor {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-soft);
+  background: var(--control-bg);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+  transition: background 0.2s ease, transform 0.16s ease;
+}
+.addColor:hover {
+  background: var(--seg-hover-bg);
+}
+.addColor:active {
+  transform: scale(0.97);
+}
+
+/* Simple monochrome handle. */
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #161618;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #161618;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+/* ---------- Segmented control (shared by Style + State) ---------- */
+/* Full-width control with equal segments, used for both the 3-item Style
+   toggle and the 5-item State selector so they're the same component. */
+
+.segFull {
+  position: relative;
+  display: flex;
+  gap: 4px; /* breathing room so hover backgrounds don't sit flush */
+  width: 100%;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--control-bg);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+  backdrop-filter: blur(6px);
+}
+
+/* Sliding active background — its width (= one slot) and translateX (= active
+   index) are set inline; equal slots (no gap) keep it aligned for 3 or 5. */
+.segThumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.segFullItem {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 8px 1px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: capitalize;
+  text-align: center;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--muted);
+  transition: color 0.25s ease;
+}
+.segFullItem:not(.segFullItemActive):hover {
+  color: var(--seg-hover-fg);
+  background: var(--seg-hover-bg);
+}
+.segFullItemActive {
+  color: var(--accent-fg);
+}

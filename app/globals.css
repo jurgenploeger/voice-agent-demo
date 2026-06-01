@@ -1,0 +1,85 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* Geist drives both the previous display/text variable slots. */
+:root {
+  --font-display: var(--font-geist-sans);
+  --font-text: var(--font-geist-sans);
+
+  /* Light theme (default). Only these tokens change between themes — the
+     visualizations stay colored via their own hue/stop controls. */
+  --page-bg: #f9f9f9;
+  --device-bg: #ffffff;
+  --screen-bg: #ffffff;
+  --edge: rgba(0, 0, 0, 0.08);
+  --hairline: rgba(0, 0, 0, 0.08);
+  --text: #111111;
+  --text-soft: #1c1c1e;
+  --muted: #9a9aa0;
+  --field-bg: #f4f4f6;
+  --control-bg: rgba(0, 0, 0, 0.05);
+  --control-edge: rgba(0, 0, 0, 0.06);
+  --accent: #161618;
+  --accent-fg: #ffffff;
+  --accent-hover: #2e2e31;
+  --home-bar: #1c1c1e;
+  --swatch-ring: #ffffff;
+  --seg-hover-bg: rgba(0, 0, 0, 0.09);
+  --seg-hover-fg: #4a4a50;
+}
+
+[data-theme="dark"] {
+  --page-bg: #0c0c0e;
+  --device-bg: #161618;
+  --screen-bg: #161618;
+  --edge: rgba(255, 255, 255, 0.12);
+  --hairline: rgba(255, 255, 255, 0.1);
+  --text: #f5f5f6;
+  --text-soft: #e6e6ea;
+  --muted: #7c7c84;
+  --field-bg: rgba(255, 255, 255, 0.07);
+  --control-bg: rgba(255, 255, 255, 0.08);
+  --control-edge: rgba(255, 255, 255, 0.1);
+  --accent: #f5f5f6;
+  --accent-fg: #161618;
+  --accent-hover: #e2e2e8;
+  --home-bar: #5a5a62;
+  --swatch-ring: #2a2a2e;
+  --seg-hover-bg: rgba(255, 255, 255, 0.15);
+  --seg-hover-fg: #c2c2ca;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /* Geist stylistic alternates: ss02 = single-story (no-curve) a,
+     ss03 = alternate l, ss04 = alternate R, ss06 = alternate G. */
+  font-feature-settings: "ss02", "ss03", "ss04", "ss06";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+::selection {
+  background: #111;
+  color: #fff;
+}

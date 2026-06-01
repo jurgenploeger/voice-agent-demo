@@ -1,0 +1,16 @@
+.wrap {
+  width: 100%;
+  height: 100%;
+}
+
+.fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: #a0a0a6;
+  text-align: center;
+}
