@@ -12,8 +12,8 @@ import {
 
 const TABS: { id: Viz; label: string }[] = [
   { id: "orb", label: "Orb" },
+  { id: "aura", label: "Aura" },
   { id: "wave", label: "Wave" },
-  { id: "pulse", label: "Pulse" },
 ];
 
 /* --- hue <-> hex (mirrors the shader's vivid(): tuned S/V, yellow-green tamed) --- */
@@ -77,11 +77,15 @@ type Props = {
   state: AgentState;
   setState: (s: AgentState) => void;
   colors: number[]; // hues
+  colorIds: number[]; // stable per-colour ids (for enter/exit animation)
   setColorAt: (i: number, hue: number) => void;
   addColor: () => void;
   removeColor: (i: number) => void;
   shuffle: () => void;
 };
+
+// Matches the colour-row enter/exit animation duration in page.module.css.
+const ROW_ANIM_MS = 380;
 
 export default function Controls({
   viz,
@@ -89,6 +93,7 @@ export default function Controls({
   state,
   setState,
   colors,
+  colorIds,
   setColorAt,
   addColor,
   removeColor,
@@ -99,6 +104,19 @@ export default function Controls({
   useEffect(() => {
     setHexText(colors.map(vividHex));
   }, [colors]);
+
+  // Rows mid-removal: collapse them (same animation as adding, reversed) and
+  // only drop the colour from state once the animation has played.
+  const [exitingIds, setExitingIds] = useState<number[]>([]);
+  const handleRemove = (i: number) => {
+    const id = colorIds[i];
+    if (id === undefined || exitingIds.includes(id)) return;
+    setExitingIds((x) => [...x, id]);
+    window.setTimeout(() => {
+      removeColor(i);
+      setExitingIds((x) => x.filter((e) => e !== id));
+    }, ROW_ANIM_MS);
+  };
 
   return (
     <>
@@ -158,43 +176,50 @@ export default function Controls({
       <div className={styles.control}>
         <span className={styles.controlLabel}>Color</span>
         <div className={styles.colorRows}>
-          {colors.map((h, i) => (
-            <div key={i} className={styles.colorRow}>
-              <div className={styles.colorRowInner}>
-                <input
-                  className={`${styles.slider} ${styles.hueTrack}`}
-                  type="range"
-                  min={0}
-                  max={360}
-                  value={h}
-                  onChange={(e) => setColorAt(i, Number(e.target.value))}
-                  aria-label={`Color ${i + 1} hue`}
-                />
-                <input
-                  className={styles.hexInput}
-                  type="text"
-                  spellCheck={false}
-                  value={hexText[i] ?? ""}
-                  aria-label={`Color ${i + 1} hex`}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setHexText((t) => t.map((x, idx) => (idx === i ? v : x)));
-                    const hue = hexToHue(v);
-                    if (hue !== null) setColorAt(i, Math.round(hue));
-                  }}
-                />
-                {colors.length > 1 && (
-                  <button
-                    className={styles.colorRemove}
-                    aria-label={`Remove color ${i + 1}`}
-                    onClick={() => removeColor(i)}
-                  >
-                    <X size={14} weight="bold" />
-                  </button>
-                )}
+          {colors.map((h, i) => {
+            const id = colorIds[i] ?? i;
+            const exiting = exitingIds.includes(id);
+            return (
+              <div
+                key={id}
+                className={`${styles.colorRow} ${exiting ? styles.colorRowExiting : ""}`}
+              >
+                <div className={styles.colorRowInner}>
+                  <input
+                    className={`${styles.slider} ${styles.hueTrack}`}
+                    type="range"
+                    min={0}
+                    max={360}
+                    value={h}
+                    onChange={(e) => setColorAt(i, Number(e.target.value))}
+                    aria-label={`Color ${i + 1} hue`}
+                  />
+                  <input
+                    className={styles.hexInput}
+                    type="text"
+                    spellCheck={false}
+                    value={hexText[i] ?? ""}
+                    aria-label={`Color ${i + 1} hex`}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setHexText((t) => t.map((x, idx) => (idx === i ? v : x)));
+                      const hue = hexToHue(v);
+                      if (hue !== null) setColorAt(i, Math.round(hue));
+                    }}
+                  />
+                  {colors.length > 1 && (
+                    <button
+                      className={styles.colorRemove}
+                      aria-label={`Remove color ${i + 1}`}
+                      onClick={() => handleRemove(i)}
+                    >
+                      <X size={14} weight="bold" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className={styles.colorActions}>

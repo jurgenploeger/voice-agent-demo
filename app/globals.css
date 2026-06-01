@@ -8,7 +8,7 @@
 
 html,
 body {
-  height: 100%;
+  min-height: 100%;
 }
 
 /* Geist drives both the previous display/text variable slots. */
@@ -36,6 +36,10 @@ body {
   --swatch-ring: #ffffff;
   --seg-hover-bg: rgba(0, 0, 0, 0.09);
   --seg-hover-fg: #4a4a50;
+  /* Translucent glass for screen chrome (composer) so colour gradients behind
+     it blend through instead of clashing with an opaque fill. */
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --field-hint: rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="dark"] {
@@ -57,6 +61,9 @@ body {
   --swatch-ring: #2a2a2e;
   --seg-hover-bg: rgba(255, 255, 255, 0.15);
   --seg-hover-fg: #c2c2ca;
+  --glass-bg: rgba(22, 22, 24, 0.5);
+  /* Brighter than --muted so the placeholder stays legible over the Aura. */
+  --field-hint: rgba(255, 255, 255, 0.5);
 }
 
 body {

@@ -7,7 +7,7 @@ import Phone from "./components/Phone";
 import Controls from "./components/Controls";
 import { AgentState } from "./components/visualizations/states";
 
-export type Viz = "orb" | "wave" | "pulse";
+export type Viz = "orb" | "aura" | "wave";
 
 // Deep electric blue-violet so the first render looks intentional (Siri-like).
 const DEFAULT_HUE = 252;
@@ -18,9 +18,16 @@ export default function Page() {
   const [viz, setViz] = useState<Viz>("orb");
   const [state, setState] = useState<AgentState>("listening");
   const [colors, setColors] = useState<number[]>([DEFAULT_HUE]); // 1-3 hues
+  // Stable per-colour ids so colour rows can animate in/out by identity.
+  const [colorIds, setColorIds] = useState<number[]>([0]);
+  const colorIdSeq = useRef(1);
   const [theme, setTheme] = useState<Theme>("light");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  // Once the user flips the toggle, stop following the OS so their choice sticks.
+  const userOverrodeTheme = useRef(false);
 
   // Track viewport so controls sit below the phone on desktop, in a bottom
   // sheet on mobile. (Starts false so server + first client render match.)
@@ -32,38 +39,89 @@ export default function Page() {
     return () => mq.removeEventListener("change", apply);
   }, []);
 
+  // Follow the OS colour scheme on load AND keep in sync when it changes live
+  // (e.g. iOS auto day/night), until the user manually overrides via the toggle.
   useEffect(() => {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setTheme("dark");
-    }
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setTheme(mq.matches ? "dark" : "light");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (!userOverrodeTheme.current) setTheme(e.matches ? "dark" : "light");
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  // Swipe shortcut (mobile): swipe down opens the settings sheet, up closes it.
-  const touchStartY = useRef<number | null>(null);
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0]?.clientY ?? null;
+  // Mobile: the settings sheet is driven by a real scroll gesture — touch-based
+  // swipe detection is unreliable on mobile web. The page scrolls inside an
+  // invisible host with two snap stops: closed (top) and open (bottom). Scroll
+  // progress 0..1 lifts the sheet while the app behind it scales down and dims.
+  const applyProgress = () => {
+    const host = hostRef.current;
+    if (!host) return;
+    const range = host.scrollHeight - host.clientHeight;
+    const p = range > 0 ? Math.min(1, Math.max(0, host.scrollTop / range)) : 0;
+    host.style.setProperty("--p", p.toFixed(4));
+    const open = p > 0.5;
+    setSheetOpen((prev) => (prev === open ? prev : open));
   };
-  const onTouchEnd = (e: React.TouchEvent) => {
-    const start = touchStartY.current;
-    touchStartY.current = null;
-    if (!isMobile || start == null) return;
-    const dy = (e.changedTouches[0]?.clientY ?? start) - start;
-    if (dy > 60 && !menuOpen) setMenuOpen(true);
-    else if (dy < -60 && menuOpen) setMenuOpen(false);
+  const onHostScroll = () => {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      applyProgress();
+    });
   };
+  // Custom tween for tap-to-open/close — snappier than the browser's built-in
+  // smooth scroll (whose duration we can't control). Snap is disabled during
+  // the tween so mandatory snapping doesn't fight it, then always restored.
+  const tweenRef = useRef<number | null>(null);
+  const tweenScroll = (to: number) => {
+    const host = hostRef.current;
+    if (!host) return;
+    if (tweenRef.current != null) cancelAnimationFrame(tweenRef.current);
+    const from = host.scrollTop;
+    const dist = to - from;
+    if (Math.abs(dist) < 1) return;
+    const dur = 230; // ms
+    const ease = (x: number) => 1 - Math.pow(1 - x, 3); // ease-out cubic
+    host.style.scrollSnapType = "none";
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (start == null) start = ts;
+      const k = Math.min(1, (ts - start) / dur);
+      host.scrollTop = from + dist * ease(k);
+      if (k < 1) {
+        tweenRef.current = requestAnimationFrame(step);
+      } else {
+        tweenRef.current = null;
+        host.style.scrollSnapType = ""; // back to CSS (mandatory)
+      }
+    };
+    tweenRef.current = requestAnimationFrame(step);
+  };
+  const openSheet = () => tweenScroll(hostRef.current?.clientHeight ?? 0);
+  const closeSheet = () => tweenScroll(0);
 
-  const toggleTheme = () =>
+  const toggleTheme = () => {
+    userOverrodeTheme.current = true;
     setTheme((t) => (t === "light" ? "dark" : "light"));
+  };
   const setColorAt = (i: number, hue: number) =>
     setColors((c) => c.map((h, idx) => (idx === i ? hue : h)));
-  const addColor = () =>
+  const addColor = () => {
     setColors((c) => (c.length >= 3 ? c : [...c, (c[c.length - 1] + 80) % 360]));
-  const removeColor = (i: number) =>
+    setColorIds((ids) =>
+      ids.length >= 3 ? ids : [...ids, colorIdSeq.current++]
+    );
+  };
+  const removeColor = (i: number) => {
     setColors((c) => (c.length <= 1 ? c : c.filter((_, idx) => idx !== i)));
+    setColorIds((ids) => (ids.length <= 1 ? ids : ids.filter((_, idx) => idx !== i)));
+  };
   // Shuffle picks a random base hue + a classic harmony scheme (analogous,
   // complementary, triadic, split-complementary) so the result always reads as
   // an intentional, harmonized palette rather than a random clash.
@@ -100,6 +158,7 @@ export default function Page() {
     state,
     setState,
     colors,
+    colorIds,
     setColorAt,
     addColor,
     removeColor,
@@ -107,57 +166,70 @@ export default function Page() {
   };
 
   return (
-    <main className={styles.stage} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-      {/* Desktop: theme toggle lives at the top-right of the page. */}
+    <main className={styles.stage}>
+      {/* Desktop: theme toggle top-right, phone centered, controls below. */}
       {!isMobile && (
-        <button
-          className={styles.themeToggle}
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          onClick={toggleTheme}
-        >
-          {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-      )}
-
-      <Phone
-        viz={viz}
-        hues={colors}
-        state={state}
-        dark={theme === "dark"}
-        showMenu={isMobile}
-        onMenu={() => setMenuOpen(true)}
-        onToggleTheme={toggleTheme}
-      />
-
-      {/* Desktop: controls sit below the phone. */}
-      {!isMobile && (
-        <div className={styles.controls}>
-          <Controls {...controlsProps} />
-        </div>
-      )}
-
-      {/* Mobile: controls live in an iOS-style bottom sheet. */}
-      {isMobile && (
-        <div
-          className={`${styles.sheet} ${menuOpen ? styles.sheetOpen : ""}`}
-          role="dialog"
-          aria-label="Settings"
-          aria-hidden={!menuOpen}
-        >
+        <>
           <button
-            className={styles.sheetScrim}
-            aria-label="Close settings"
-            tabIndex={menuOpen ? 0 : -1}
-            onClick={() => setMenuOpen(false)}
+            className={styles.themeToggle}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            onClick={toggleTheme}
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          <Phone
+            viz={viz}
+            hues={colors}
+            state={state}
+            dark={theme === "dark"}
+            showMenu={false}
+            onMenu={() => {}}
+            onToggleTheme={toggleTheme}
           />
-          <div className={styles.sheetPanel}>
+
+          <div className={styles.controls}>
+            <Controls {...controlsProps} />
+          </div>
+        </>
+      )}
+
+      {/* Mobile: scroll down to reveal the settings sheet (app scales + dims
+          behind it); scroll up to dismiss. Snap stops settle open/closed. */}
+      {isMobile && (
+        <div className={styles.scrollHost} ref={hostRef} onScroll={onHostScroll}>
+          <div className={styles.phoneLayer}>
+            <Phone
+              viz={viz}
+              hues={colors}
+              state={state}
+              dark={theme === "dark"}
+              showMenu
+              onMenu={openSheet}
+              onToggleTheme={toggleTheme}
+            />
+          </div>
+
+          <button
+            className={`${styles.phoneDim} ${sheetOpen ? styles.phoneDimActive : ""}`}
+            aria-label="Close settings"
+            tabIndex={sheetOpen ? 0 : -1}
+            onClick={closeSheet}
+          />
+
+          <div
+            className={`${styles.sheet2} ${sheetOpen ? styles.sheet2Open : ""}`}
+            role="dialog"
+            aria-label="Settings"
+            aria-hidden={!sheetOpen}
+          >
             <div className={styles.sheetHead}>
               <span className={styles.sheetTitle}>Settings</span>
               <button
                 className={styles.sheetClose}
                 aria-label="Close"
-                tabIndex={menuOpen ? 0 : -1}
-                onClick={() => setMenuOpen(false)}
+                tabIndex={sheetOpen ? 0 : -1}
+                onClick={closeSheet}
               >
                 <X size={18} weight="bold" />
               </button>
@@ -166,6 +238,10 @@ export default function Page() {
               <Controls {...controlsProps} />
             </div>
           </div>
+
+          {/* Invisible scroll length: two snap stops (closed / open). */}
+          <div className={styles.snap} />
+          <div className={styles.snap} />
         </div>
       )}
     </main>

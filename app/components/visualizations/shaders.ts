@@ -189,28 +189,29 @@ void main() {
   float nAmp = 0.16 + 0.18 * uReact + 0.14 * speech;
   vec2 sp = p + nAmp * vec2(snoise(vec3(p * 0.6, nt)),
                             snoise(vec3(p * 0.6 + 4.7, nt)));
+  // A circular wave rippling out from the centre, displacing TANGENTIALLY so the
+  // interior swirls in concentric waves — liquid sloshing inside the orb.
+  float ang = atan(p.y, p.x);
+  float wave = (0.05 + 0.05 * speech) * sin(length(p) * 6.0 - nt * 4.0);
+  sp += wave * vec2(-sin(ang), cos(ang));
 
-  // --- 2-3 big, soft colour clouds. Each centre's DISTANCE from the middle
-  // ping-pongs (bounces) off the orb's edge while its direction wanders from
-  // noise — so the blobs ricochet around inside the circle, never looping. ---
-  // The blobs drift at their OWN steady pace (constant rate + constant reach),
-  // independent of the conversational state: the speaking animation drives the
-  // mesh warp above, not this travel — so the clouds keep bouncing the edges on
-  // their own whether the agent is idle or speaking.
-  // Keep the bounce boundary modest so the (large) blobs always overlap into a
-  // single connected shape — they shift/bounce but never separate with a gap.
+  // --- 2-3 big, soft colour clouds that CIRCULATE around the interior on their
+  // own orbits (counter-rotating, with noise on angle + radius) so the masses
+  // revolve like liquid swirling inside the orb. The radii stay bounded so the
+  // (large) blobs always overlap into one connected shape — never a gap. The
+  // base angular rate uses uTime directly (which already carries the per-state
+  // speed), so speaking swirls faster without a phase jump on state change. ---
   float edge = 0.5;
-  float reach = 1.0; // constant — bouncing comes from the wander, not the state
-  float bt = t * 0.9; // self-driven drift clock, decoupled from state speed
-  vec2 d0 = reach * vec2(snoise(vec3(bt * 0.16, 0.0, 1.0)),
-                         snoise(vec3(bt * 0.16, 1.0, 0.0)));
-  vec2 d1 = reach * vec2(snoise(vec3(bt * 0.12, 9.0, 0.0)),
-                         snoise(vec3(bt * 0.12, 0.0, 9.0)));
-  vec2 d2 = reach * vec2(snoise(vec3(bt * 0.09, 5.0, 2.0)),
-                         snoise(vec3(bt * 0.09, 2.0, 5.0)));
-  vec2 c0 = pingpong(length(d0), edge) * normalize(d0 + vec2(1e-3, 0.0));
-  vec2 c1 = pingpong(length(d1), edge) * normalize(d1 + vec2(1e-3, 0.0));
-  vec2 c2 = pingpong(length(d2), edge) * normalize(d2 + vec2(1e-3, 0.0));
+  float bt = t;
+  float a0 =  bt * 0.55 + 2.2 * snoise(vec3(bt * 0.13, 0.0, 0.0));
+  float a1 = -bt * 0.44 + 2.2 * snoise(vec3(bt * 0.11, 5.0, 0.0)) + 2.0;
+  float a2 =  bt * 0.34 + 2.2 * snoise(vec3(bt * 0.09, 9.0, 0.0)) + 4.0;
+  float rad0 = edge * (0.42 + 0.36 * (0.5 + 0.5 * snoise(vec3(bt * 0.20, 1.0, 0.0))));
+  float rad1 = edge * (0.40 + 0.38 * (0.5 + 0.5 * snoise(vec3(bt * 0.17, 2.0, 0.0))));
+  float rad2 = edge * (0.38 + 0.32 * (0.5 + 0.5 * snoise(vec3(bt * 0.14, 4.0, 0.0))));
+  vec2 c0 = rad0 * vec2(cos(a0), sin(a0));
+  vec2 c1 = rad1 * vec2(cos(a1), sin(a1));
+  vec2 c2 = rad2 * vec2(cos(a2), sin(a2));
   // Tighter falloffs so the clouds read as distinct, defined colour zones (a
   // mesh gradient) rather than melting into one uniform blur — still soft.
   float b0 = smoothstep(1.05, 0.1, length(sp - c0));
@@ -383,85 +384,70 @@ void main() {
 `;
 
 /* ------------------------------------------------------------------ */
-/* PULSE — staggered expanding rings + breathing center dot.           */
+/* AURA — a soft gradient glow that pools at the BOTTOM of the screen   */
+/* and climbs both sides in a U, thinning toward the top. Smooth and    */
+/* blurry (no sharp curtains); it swells and pulses while speaking.     */
 /* ------------------------------------------------------------------ */
-export const PULSE_FRAGMENT = HEADER + COORDS + /* glsl */ `
-#define K 3
-
+export const AURA_FRAGMENT = HEADER + SNOISE + /* glsl */ `
 void main() {
-  vec2 q = coords();
+  // Full-screen 0..1 coords (y = 1 top, 0 bottom).
+  vec2 uv = gl_FragCoord.xy / uResolution.xy;
   float t = uTime;
-  float d = length(q);
-  float breath = 0.5 + 0.5 * sin(t * (TAU / 3.6));
-  float aa = 1.6 / min(uResolution.x, uResolution.y);
 
-  float ang = atan(q.y, q.x);
+  // Speech-like envelope (irregular) — strong while speaking (uReact ~1),
+  // gentle while listening (~0.45), near-still otherwise.
+  float speechN = snoise(vec3(t * 2.4, 11.0, 3.0)) * 0.6
+                + snoise(vec3(t * 1.3, 7.0, 9.0)) * 0.4;
+  float speech = uReact * (0.5 + 0.5 * speechN);
 
-  // State energy pushes the rings out a little further.
-  float maxR = 0.42 * (0.82 + 0.3 * uLevel);
-  float period = 3.6;
+  // --- fluid motion: domain-warp the sampling position with slow flowing noise
+  // so the oval undulates and morphs like liquid. uTime already integrates the
+  // per-state speed (lerped in JS), so use a FIXED rate here — multiplying
+  // accumulated time by a changing factor would make the phase JUMP on a state
+  // change (glitchy). ---
+  float slow = t * 0.13;
+  vec2 warp = vec2(
+    snoise(vec3(uv.x * 1.3, uv.y * 1.1 - slow, slow * 0.7)),
+    snoise(vec3(uv.x * 1.3 + 5.0, uv.y * 1.1 + slow * 0.9, slow * 0.8 + 2.0))
+  );
+  vec2 p = uv + warp * (0.12 + 0.10 * uReact); // flows more while speaking
 
-  vec3 ringCol = mix(vivid(uHue), vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
-  float ringSum = 0.0;
-  float glowSum = 0.0;
+  // Soft flowing field (sampled in the warped space) for gentle intensity drift.
+  float field = 0.62 * snoise(vec3(p.x * 0.9, p.y * 0.8 - slow, slow * 0.6))
+              + 0.38 * snoise(vec3(p.x * 1.6 + 3.0, p.y * 1.2 + slow, slow + 2.0));
+  field = field * 0.5 + 0.5;
+  field = mix(0.55, field, 0.9);
 
-  // --- expanding rings (idle / listening / speaking) ---
-  // Suppressed when connecting (loader) or thinking (spinner) take over.
-  float ringsW = clamp(1.0 - uLoad - uFlow, 0.0, 1.0);
-  for (int k = 0; k < K; k++) {
-    // Stagger phase so 2-3 rings are always visible at different radii.
-    float phase = fract(t / period + float(k) / float(K));
-    float r = phase * maxR;
-    float thick = mix(0.020, 0.004, phase); // thins as it grows
-    float ring = 1.0 - smoothstep(thick, thick + aa + 0.004, abs(d - r));
-    // Eased opacity in & out so rings never pop.
-    float op = smoothstep(0.0, 0.14, phase) * (1.0 - smoothstep(0.62, 1.0, phase));
-    ringSum += ring * op * ringsW;
-    glowSum += exp(-pow((d - r) / 0.055, 2.0)) * op * 0.22 * ringsW;
-  }
+  // --- a soft bloom rising from the bottom edge: brightest low, fading up into
+  // the dark (like Google's "Neural Expressive" UI). Kept SHORT, and a touch
+  // taller at the left/right edges than in the middle so the top contour dips —
+  // a slight U. Sampled in the WARPED space so it flows fluidly. ---
+  float ex = clamp(abs(p.x - 0.5) * 2.0, 0.0, 1.0);          // 0 centre -> 1 at sides
+  float reachY = mix(0.26, 0.40, smoothstep(0.15, 1.0, ex)); // short centre, taller sides
+  reachY *= 1.0 + 0.42 * speech;                             // bloom swells taller on speech peaks
+  float mask = clamp(1.0 - smoothstep(0.0, reachY, p.y), 0.0, 1.0); // bright bottom -> fade up
 
-  // --- rotating spinner (thinking) ---
-  // A comet head sweeping around a fixed ring, so it reads as "processing".
-  float spinR = 0.17;
-  float spinBand = exp(-pow((d - spinR) / 0.05, 2.0));
-  float comet = pow(0.5 + 0.5 * sin(ang - t * 3.0), 3.0);
-  float spinner = spinBand * comet * uFlow;
-  ringSum += spinner;
-  glowSum += spinner * 0.4;
+  // Soft glow, modulated by the flowing field; breathes, swells with speech.
+  float breath = 0.94 + 0.06 * sin(t * 0.5);
+  float glow = clamp(mask * (0.5 + 0.6 * field) * breath, 0.0, 1.0);
 
-  // --- in-place pulsing ring (connecting) ---
-  // A ring at a fixed radius breathing in opacity — hesitant, "not live yet".
-  float loadR = 0.16;
-  float loadPulse = exp(-pow((d - loadR) / 0.022, 2.0))
-                  * (0.35 + 0.65 * (0.5 + 0.5 * sin(t * 2.4))) * uLoad;
-  ringSum += loadPulse;
-  glowSum += loadPulse * 0.4;
+  // --- palette spread by horizontal position so every slider colour shows:
+  // left -> colour 1, centre -> colour 2, right -> colour 3 (fixed, not
+  // time-cycling). Colours degrade gracefully as fewer are active. ---
+  vec3 c0 = vivid(uHue);
+  vec3 c1 = mix(c0, vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
+  vec3 c2 = mix(c1, vivid(uHue2), clamp(uCount - 2.0, 0.0, 1.0));
+  float s = clamp(uv.x, 0.0, 1.0) * 2.0;
+  vec3 col = s < 1.0 ? mix(c0, c1, smoothstep(0.0, 1.0, s))
+                     : mix(c1, c2, smoothstep(0.0, 1.0, s - 1.0));
 
-  ringSum = clamp(ringSum, 0.0, 1.0);
+  col = desat(col, uSat);
 
-  // Center dot with its own breath + internal gradient.
-  float dotR = 0.052 * (0.82 + 0.26 * breath);
-  float dotMask = 1.0 - smoothstep(dotR - aa, dotR + aa, d);
-  vec3 dotAccent = mix(vivid(uHue), vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
-  vec3 dotCol = mix(dotAccent, deepHue(uHue), smoothstep(0.0, dotR, d));
-  float dotGlow = exp(-pow(d / (dotR * 3.0), 2.0)) * (0.6 + 0.4 * breath);
+  // Speaking swells + pulses the glow; level lifts presence.
+  float pulse = 1.0 + 0.7 * speech;
+  float a = clamp(glow * (0.95 + 0.4 * uLevel) * pulse, 0.0, 0.97) * uBright;
+  a = clamp(a, 0.0, 1.0);
 
-  vec3 haloCol = mix(vivid(uHue), vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
-  float haloA = clamp(glowSum + dotGlow * 0.5, 0.0, 0.7);
-
-  // State saturation.
-  ringCol = desat(ringCol, uSat);
-  dotCol = desat(dotCol, uSat);
-  haloCol = desat(haloCol, uSat);
-
-  vec4 outc = vec4(haloCol, haloA);
-  outc.rgb = mix(outc.rgb, ringCol, ringSum);
-  outc.a = outc.a + ringSum * 0.85 * (1.0 - outc.a);
-  outc.rgb = mix(outc.rgb, dotCol, dotMask);
-  outc.a = outc.a + dotMask * (1.0 - outc.a);
-
-  // State presence.
-  float a = clamp(outc.a * uBright, 0.0, 1.0);
-  gl_FragColor = vec4(outc.rgb * a, a);
+  gl_FragColor = vec4(col * a, a);
 }
 `;

@@ -1,8 +1,8 @@
 import ShaderCanvas from "./ShaderCanvas";
-import { PULSE_FRAGMENT } from "./shaders";
+import { AURA_FRAGMENT } from "./shaders";
 import { AgentState } from "./states";
 
-export default function Pulse({
+export default function Aura({
   hues,
   running,
   state,
@@ -15,7 +15,7 @@ export default function Pulse({
 }) {
   return (
     <ShaderCanvas
-      fragment={PULSE_FRAGMENT}
+      fragment={AURA_FRAGMENT}
       hues={hues}
       running={running}
       state={state}

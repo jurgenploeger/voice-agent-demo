@@ -1,6 +1,7 @@
 .stage {
-  height: 100dvh;
-  overflow: hidden;
+  /* min-height (not fixed height) so the page is centered when it fits and
+     grows + scrolls when the viewport is too short to show everything. */
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -49,47 +50,83 @@
   transform: scale(0.94);
 }
 
-/* ---------- Settings bottom sheet (iOS-style, mobile) ---------- */
+/* ---------- Settings sheet: scroll-to-reveal (iOS-style, mobile) ----------
+   An invisible full-screen scroll host captures a real scroll gesture (more
+   reliable than touch-swipe detection on mobile web). Two 100dvh snap stops
+   give a 1-viewport scroll range; JS writes scroll progress into `--p` (0..1).
+   Scrolling down lifts the sheet from the bottom while the app behind it
+   scales down and dims; scrolling up reverses it. */
 
-.sheet {
+.scrollHost {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 10;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  --p: 0;
+}
+.scrollHost::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* The two snap stops simply create the scroll length (closed / open). */
+.snap {
+  height: 100dvh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
   pointer-events: none;
 }
 
-.sheetScrim {
-  position: absolute;
+/* The app view — fixed to the viewport, scaled + corner-rounded by progress. */
+.phoneLayer {
+  position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  opacity: 0;
-  transition: opacity 0.32s ease;
+  z-index: 1;
+  overflow: hidden;
+  background: var(--device-bg);
+  border-radius: calc(30px * var(--p));
+  transform: scale(calc(1 - 0.06 * var(--p)));
+  transform-origin: 50% 32%;
+  will-change: transform, border-radius;
 }
 
-.sheetPanel {
-  position: absolute;
+/* Dim over the app; also the tap-to-close target once the sheet is open. */
+.phoneDim {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  background: #000;
+  opacity: calc(0.45 * var(--p));
+  pointer-events: none;
+}
+.phoneDimActive {
+  pointer-events: auto;
+}
+
+.sheet2 {
+  position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  max-height: 88%;
+  z-index: 3;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   padding: 20px 20px max(20px, env(safe-area-inset-bottom));
   background: var(--device-bg);
   border-radius: 22px 22px 0 0;
   box-shadow: 0 -12px 40px -12px rgba(0, 0, 0, 0.4);
-  transform: translateY(100%);
-  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateY(calc((1 - var(--p)) * 100%));
+  will-change: transform;
+  pointer-events: none;
 }
-
-.sheetOpen {
+.sheet2Open {
   pointer-events: auto;
-}
-.sheetOpen .sheetScrim {
-  opacity: 1;
-}
-.sheetOpen .sheetPanel {
-  transform: translateY(0);
 }
 
 .sheetHead {
@@ -181,36 +218,52 @@
   flex-direction: column;
 }
 
-/* Each row expands its height from 0 on insert (grid 0fr -> 1fr), so adding a
-   colour grows the bottom-anchored sheet up smoothly instead of jumping. */
+/* Each row animates its pixel height (0 <-> 36px) — a plain height tween
+   interpolates smoothly per frame, unlike grid `fr` which the browser steps
+   in coarse jumps. Rows are a uniform 36px (26px content + 10px gap). */
 .colorRow {
-  display: grid;
-  grid-template-rows: 1fr;
-  animation: colorRowIn 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  animation: colorRowIn 0.38s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 @keyframes colorRowIn {
   from {
-    grid-template-rows: 0fr;
+    height: 0;
     opacity: 0;
   }
   to {
-    grid-template-rows: 1fr;
+    height: 36px;
     opacity: 1;
   }
 }
 
+/* Removing a colour reverses the add: the row collapses (36px -> 0) before it
+   is dropped from state, so the sheet shrinks down as smoothly as it grew. */
+.colorRowExiting {
+  animation: colorRowOut 0.38s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes colorRowOut {
+  from {
+    height: 36px;
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .colorRow {
+  .colorRow,
+  .colorRowExiting {
     animation: none;
   }
 }
 
-/* The animating grid child must clip + allow 0 height for the fold to work.
-   Bottom padding (inside the clip) is the gap between rows. */
+/* Fixed-height row content; the 10px bottom padding is the gap between rows. */
 .colorRowInner {
-  overflow: hidden;
-  min-height: 0;
+  height: 36px;
   display: flex;
   align-items: center;
   gap: 10px;

@@ -1,5 +1,7 @@
 .phone {
-  height: min(720px, calc(100dvh - 360px));
+  /* Floor keeps the device (and its centered visual) usable on short
+     viewports; the page scrolls instead of the phone collapsing. */
+  height: clamp(460px, calc(100dvh - 360px), 720px);
   aspect-ratio: 390 / 844;
   border-radius: 52px;
   background: var(--device-bg);
@@ -62,14 +64,29 @@
   transform: scale(0.94);
 }
 
+/* ---------- Aura (aurora inner-glow wrapping the screen edges) ---------- */
+
+.auraLayer {
+  position: absolute;
+  inset: 0; /* full screen so the glow can hug the top + side edges */
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
 /* ---------- Header ---------- */
 
 .header {
+  position: relative;
+  z-index: 2; /* keep the title above the aura glowing behind it */
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 18px 12px;
+  /* Fully transparent — no background, no divider. */
+  background: transparent;
 }
 
 .title {
@@ -131,6 +148,8 @@
 }
 
 .hairline {
+  position: relative;
+  z-index: 2; /* above the aura band */
   flex: none;
   height: 1px;
   background: var(--hairline);
@@ -140,16 +159,24 @@
 
 .viz {
   position: relative;
+  z-index: 1;
   flex: 1 1 auto;
   min-height: 0;
-  display: grid;
-  place-items: center;
 }
 
+/* Wrapper that the orb's tap-bounce scales (keeps the canvas mounted). */
+.bouncer {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+/* Layers fill the slot via absolute insets (not height:100%) so the canvas
+   can't drive its own parent's height and overflow the slot. */
 .vizLayer {
-  grid-area: 1 / 1;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -162,6 +189,8 @@
 /* ---------- Bottom dock ---------- */
 
 .dock {
+  position: relative;
+  z-index: 3; /* the composer sits atop the interface; the aura is behind it */
   flex: none;
   display: flex;
   align-items: center;
@@ -173,17 +202,80 @@
   flex: 1;
   display: flex;
   align-items: center;
+  gap: 8px;
   height: 46px;
-  padding: 0 18px;
+  padding: 0 6px 0 18px;
   border-radius: 999px;
-  background: var(--field-bg);
+  /* Frosted, translucent glass so the aura gradient blends through. */
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   box-shadow: inset 0 0 0 1px var(--control-edge);
 }
 
-.fieldHint {
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
   font-size: 13.5px;
-  color: var(--muted);
   letter-spacing: 0.01em;
+}
+.input:focus {
+  outline: none;
+}
+.input::placeholder {
+  color: var(--field-hint);
+}
+
+/* Inline audio button — transparent, lives at the right of the composer. */
+.micInline {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text); /* white in dark mode; stays legible in light mode */
+  transition: transform 0.16s ease, background 0.2s ease;
+}
+.micInline:hover {
+  background: var(--control-bg);
+}
+.micInline:active {
+  transform: scale(0.92);
+}
+
+/* Inline send button — appears at the right of the field once there's text. */
+.send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  transition: transform 0.16s ease, opacity 0.16s ease;
+  animation: sendIn 0.16s ease;
+}
+.send:active {
+  transform: scale(0.92);
+}
+
+@keyframes sendIn {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .mic {
@@ -193,6 +285,7 @@
   width: 46px;
   height: 46px;
   border-radius: 999px;
+  /* Solid accent: black in light mode, white in dark mode. */
   background: var(--accent);
   color: var(--accent-fg);
   box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5);

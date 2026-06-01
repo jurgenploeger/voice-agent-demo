@@ -112,6 +112,10 @@ export default function ShaderCanvas({
       const w = container.clientWidth || 1;
       const h = container.clientHeight || 1;
       renderer.setSize(w, h);
+      // setSize writes explicit px dimensions onto the canvas; force it back to
+      // fill its (absolutely-sized) wrapper so it can never overflow the slot.
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
       program.uniforms.uResolution.value.set(
         gl.drawingBufferWidth,
         gl.drawingBufferHeight
