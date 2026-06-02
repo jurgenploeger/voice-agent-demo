@@ -13,32 +13,9 @@ export type AgentState =
   | "thinking"
   | "speaking";
 
-// Order shown in the manual control + the natural call lifecycle.
-export const STATE_ORDER: AgentState[] = [
-  "idle",
-  "connecting",
-  "listening",
-  "thinking",
-  "speaking",
-];
-
-// Status-line text under the title (kept lowercase to match the original look).
-export const STATE_LABEL: Record<AgentState, string> = {
-  idle: "ready",
-  connecting: "connecting",
-  listening: "listening",
-  thinking: "thinking",
-  speaking: "speaking",
-};
-
-// Labels for the State control buttons.
-export const STATE_TAB_LABEL: Record<AgentState, string> = {
-  idle: "Ready",
-  connecting: "Connecting",
-  listening: "Listening",
-  thinking: "Thinking",
-  speaking: "Speaking",
-};
+// NOTE: presentation-only maps (status labels, button labels, display order)
+// are intentionally NOT here — they're demo concerns, not engine concerns. See
+// app/components/stateLabels.ts.
 
 // Scalar drivers fed to every shader as uniforms (lerped on the JS side so
 // state changes ease in). Each visualization reads what's relevant to it.

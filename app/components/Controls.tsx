@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import { X, Plus, Shuffle } from "@phosphor-icons/react";
 import styles from "../page.module.css";
 import type { Viz } from "../page";
-import {
-  AgentState,
-  STATE_ORDER,
-  STATE_TAB_LABEL,
-} from "./visualizations/states";
+import { AgentState } from "./visualizations/states";
+import { STATE_ORDER, STATE_TAB_LABEL } from "./stateLabels";
 
 const TABS: { id: Viz; label: string }[] = [
   { id: "orb", label: "Orb" },

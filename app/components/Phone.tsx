@@ -7,7 +7,8 @@ import type { Viz } from "../page";
 import Orb from "./visualizations/Orb";
 import Aura from "./visualizations/Aura";
 import Wave from "./visualizations/Wave";
-import { AgentState, STATE_LABEL } from "./visualizations/states";
+import { AgentState } from "./visualizations/states";
+import { STATE_LABEL } from "./stateLabels";
 
 export default function Phone({
   viz,

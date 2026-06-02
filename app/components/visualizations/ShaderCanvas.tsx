@@ -1,17 +1,43 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Renderer, Triangle, Program, Mesh, Vec2 } from "ogl";
 import { VERTEX } from "./shaders";
 import { AgentState, STATE_PARAMS, StateParams } from "./states";
-import styles from "./ShaderCanvas.module.css";
 
-type Props = {
-  fragment: string;
+// Public props shared by every visualization (Orb/Wave/Aura). The component is
+// fully driven from the outside — host an agent's lifecycle by setting `state`,
+// and its palette by setting `hues`. No global CSS, fonts, or framework APIs
+// are required.
+export type VisualizationProps = {
   hues: number[]; // 1-3 colour hues (0-360); lerped internally for smoothness
   running: boolean; // only the active visualization animates
   state: AgentState; // conversational state; drives motion/appearance
   dark: boolean; // theme — tunes the halo (clean on white vs glow on dark)
+  className?: string; // forwarded to the wrapper, for sizing/positioning
+  style?: CSSProperties; // forwarded to the wrapper (overrides the fill default)
+  fallback?: ReactNode; // shown if WebGL is unavailable (defaults to a message)
+};
+
+type Props = VisualizationProps & {
+  fragment: string;
+};
+
+// The wrapper fills its parent by default; the canvas fills the wrapper. The
+// component carries NO intrinsic size, so give the parent explicit dimensions
+// (or pass `style`/`className`) — otherwise it renders at 0x0.
+const WRAP_STYLE: CSSProperties = { width: "100%", height: "100%" };
+const FALLBACK_STYLE: CSSProperties = {
+  display: "grid",
+  placeItems: "center",
+  width: "100%",
+  height: "100%",
+  padding: 24,
+  fontSize: 13,
+  letterSpacing: "0.02em",
+  color: "#a0a0a6",
+  textAlign: "center",
 };
 
 export default function ShaderCanvas({
@@ -20,6 +46,9 @@ export default function ShaderCanvas({
   running,
   state,
   dark,
+  className,
+  style,
+  fallback,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // [hue0, hue1, hue2, count] targets; missing colours fall back to hue0.
@@ -239,7 +268,18 @@ export default function ShaderCanvas({
   }, [running, failed]);
 
   if (failed) {
-    return <div className={styles.fallback}>Visualization unavailable</div>;
+    return fallback !== undefined ? (
+      <>{fallback}</>
+    ) : (
+      <div style={FALLBACK_STYLE}>Visualization unavailable</div>
+    );
   }
-  return <div ref={containerRef} className={styles.wrap} aria-hidden />;
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ ...WRAP_STYLE, ...style }}
+      aria-hidden
+    />
+  );
 }

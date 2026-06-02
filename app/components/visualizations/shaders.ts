@@ -139,6 +139,15 @@ float snoise(vec3 v){
   m = m * m;
   return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
 }
+
+// Speech-activity envelope (0..1) shared by every visualization so "speaking"
+// ebbs and PAUSES like real talking, instead of a constant drone. A slow phrase
+// gate (~0 during pauses, 1 during phrases) times a faster syllable wobble.
+float speechEnv(float t) {
+  float gate = smoothstep(-0.25, 0.35, snoise(vec3(t * 0.6, 21.0, 0.0)));
+  float syl  = 0.55 + 0.45 * snoise(vec3(t * 3.0, 5.0, 0.0));
+  return clamp(gate * syl, 0.0, 1.0);
+}
 `;
 
 // Centered, square-unit coordinates normalized to the SMALLER dimension
@@ -166,11 +175,10 @@ void main() {
   // Shared "speech" envelope (layered simplex noise, irregular/non-looping).
   // It drives BOTH the size pulse and the interior mesh below, so the gradients
   // surge in rhythm with the talking instead of churning at a steady rate.
-  float speechN = snoise(vec3(t * 3.0, 11.0, 3.0)) * 0.62
-                + snoise(vec3(t * 1.3, 7.0, 9.0)) * 0.38; // -1 .. 1
-  float talk = uReact * speechN;
-  float R = 0.24 * (1.0 + talk * 0.09);
-  float speech = uReact * (0.5 + 0.5 * speechN); // 0 .. ~1 while speaking
+  // Speech activity with natural pauses (shared envelope). Swells the orb on
+  // speech bursts and rests it during pauses, rather than a constant pulse.
+  float speech = uReact * speechEnv(t); // 0 .. ~1 while speaking, ~0 in pauses
+  float R = 0.24 * (1.0 + speech * 0.10);
   float aa = 1.6 / min(uResolution.x, uResolution.y);
   float circle = 1.0 - smoothstep(R - aa, R + aa, r);
 
@@ -183,8 +191,12 @@ void main() {
   // always in gentle liquid motion. State is conveyed purely by MOTION SPEED &
   // AMPLITUDE (which lerp smoothly) — no rotation, so switching never spins.
   // Always-on gentle liquid drift; speaking runs it at a natural pace.
-  float spd = 0.55 + 0.4 * uLevel + 0.5 * uFlow + 1.0 * uReact;
-  float nt = t * 0.07 * spd;
+  // The interior churn SPEED comes entirely from uTime's rate (lerped per-state
+  // on the JS side), so the noise clock uses a FIXED coefficient. Multiplying
+  // the accumulated uTime by a lerping per-state factor would make the phase
+  // JUMP on a state change — that's what made the interior spin up suddenly.
+  // Speech still adds AMPLITUDE (nAmp) below; it just doesn't add extra speed.
+  float nt = t * 0.09;
   // The mesh warps harder on speech peaks (in sync with the size pulse).
   float nAmp = 0.16 + 0.18 * uReact + 0.14 * speech;
   vec2 sp = p + nAmp * vec2(snoise(vec3(p * 0.6, nt)),
@@ -215,27 +227,33 @@ void main() {
   // Tighter falloffs so the clouds read as distinct, defined colour zones (a
   // mesh gradient) rather than melting into one uniform blur — still soft.
   float b0 = smoothstep(1.05, 0.1, length(sp - c0));
-  float b1 = smoothstep(1.15, 0.1, length(sp - c1));
-  float b2 = smoothstep(0.98, 0.1, length(sp - c2));
+  float b1 = smoothstep(1.35, 0.1, length(sp - c1));
+  float b2 = smoothstep(1.32, 0.1, length(sp - c2));
 
   // One drifting "light source" spot — the orb is most transparent here, so the
   // background shines through more (a glowing window; reads as depth on dark).
   // Measured from the UN-warped coordinate so it stays a single coherent blob
   // (the noise warp can't fold it into multiple lobes). Large, drifting softly.
-  vec2 lc = 0.22 * vec2(sin(t * 0.085 * spd + 1.3), cos(t * 0.1 * spd + 0.5));
+  vec2 lc = 0.22 * vec2(sin(t * 0.085 + 1.3), cos(t * 0.1 + 0.5));
   float lightSpot = smoothstep(1.7, 0.1, length(p - lc));
 
   // Palette: harmonic offsets from one hue. Kept saturated so the interior
   // colour reads pronounced even through the translucent body.
-  // Up to three user-chosen colours. With one colour every cloud is the same
-  // hue (mono shades); colours 2 and 3 crossfade in as uCount rises (lerped),
-  // so adding/removing a colour is smooth.
+  // Up to three user-chosen colours; colours 2 and 3 crossfade in as uCount
+  // rises (lerped), so adding/removing a colour is smooth.
   vec3 k0 = saturate3(vivid(uHue),  1.85);
   vec3 k1 = saturate3(vivid(uHue1), 1.85);
   vec3 k2 = saturate3(vivid(uHue2), 1.85);
+  // SINGLE-colour fallback: rather than every cloud being the IDENTICAL hue (so
+  // the interior barely moves), the 2nd/3rd clouds become a brighter and a
+  // deeper SHADE of that one hue — so a mono orb still shows light and deep
+  // masses circulating inside. These crossfade to the real colours 2/3 as those
+  // activate, so the multi-colour look is unchanged.
+  vec3 kLight = saturate3(clamp(vivid(uHue) * 1.20, 0.0, 1.0), 1.4);
+  vec3 kDeep  = saturate3(vivid(uHue) * 0.62, 1.5);
   vec3 colA = k0;
-  vec3 colB = mix(k0, k1, clamp(uCount - 1.0, 0.0, 1.0));
-  vec3 colC = mix(k0, k2, clamp(uCount - 2.0, 0.0, 1.0));
+  vec3 colB = mix(kLight, k1, clamp(uCount - 1.0, 0.0, 1.0));
+  vec3 colC = mix(kDeep,  k2, clamp(uCount - 2.0, 0.0, 1.0));
   // Base fills the gaps between clouds — kept saturated so the mesh stays vivid.
   vec3 base = saturate3(mix(vivid(uHue), vec3(1.0), 0.08), 1.4);
 
@@ -288,98 +306,75 @@ void main() {
 `;
 
 /* ------------------------------------------------------------------ */
-/* WAVE — rounded vertical bars, summed-sine heights, drifting bell.   */
+/* WAVE — an oscillating STRING: a travelling wave (moves left->right)    */
+/* under a Gaussian packet. Flat-lines during silence and erupts into     */
+/* waves on speech; waves pack CLOSER together while speaking; a gradient  */
+/* of the chosen colours flows along the line. Crisp, no glow.            */
 /* ------------------------------------------------------------------ */
-export const WAVE_FRAGMENT = HEADER + COORDS + /* glsl */ `
-#define N 33.0
-
-// 4 summed sines of differing frequency/phase -> drifting, never symmetric.
-float barAmp(float i, float t) {
-  return 0.30
-       + 0.26 * sin(i * 0.42 + t * 1.05)
-       + 0.18 * sin(i * 0.21 - t * 0.73 + 1.7)
-       + 0.12 * sin(i * 0.115 + t * 0.47 + 3.2)
-       + 0.08 * sin(i * 0.07 - t * 1.6 + 0.5);
-}
-
+export const WAVE_FRAGMENT = HEADER + SNOISE + COORDS + /* glsl */ `
 void main() {
   vec2 q = coords();
   float t = uTime;
-  float breath = 0.5 + 0.5 * sin(t * (TAU / 3.8));
+  float x = q.x;
 
-  float A = 0.40;            // half horizontal spread
-  float maxH = 0.165;        // max half-height (keeps it in a center band)
-  float spacing = (2.0 * A) / (N - 1.0);
-  float radius = spacing * 0.30;
-  float aa = 1.6 / min(uResolution.x, uResolution.y);
+  // --- The string: flat at the edges, bursting into a wave packet in the
+  // centre. A STANDING wave (no sideways travel) keeps the packet symmetric
+  // about the centre so it never looks skewed; a travelling phase would shift
+  // the crests off-centre under the fixed envelope and read as a lean. The
+  // frequency rises (waves pack closer) while speaking. ---
+  float sigma = 0.16;                              // packet half-width (narrow -> L/R margin)
+  // Connecting sweeps the packet side-to-side like a loader; else centred.
+  float center = uLoad * 0.30 * sin(t * 1.3);
+  float env = exp(-pow((x - center) / sigma, 2.0));
 
-  // Reactive envelope centre slowly travels; loader bump bounces side to side.
-  float center = 0.42 * sin(t * 0.22);
-  float loadC = sin(t * 1.7) * 0.86; // connecting loader sweep position (-1..1)
+  // Waves closer together while speaking (uReact); thinking adds some too.
+  float freq = 24.0 + 26.0 * uReact + 10.0 * uFlow;
+  // Travelling phase: the waves move left -> right in every state (uTime carries
+  // the per-state speed, lerped on the JS side).
+  float phase = x * freq - t * 5.0;
 
-  float fi = (q.x + A) / spacing; // fractional bar index at this pixel
-  float fill = 0.0;
-  float glow = 0.0;
-  vec3 col = vec3(0.0);
+  // A gentle always-on ripple keeps LISTENING/idle a subtle, near-flat line that
+  // still waves left->right. The bigger SPEAKING waves erupt only at high uReact
+  // and follow the speech envelope SMOOTHLY (no hard gate), so they rise and fall
+  // naturally instead of snapping, and still flatten toward the baseline during
+  // speech pauses (flat-line vs waves). Thinking/connecting keep a steady wave.
+  float base  = 0.018 + 0.022 * uReact;         // subtle ripple (listening stays low)
+  float speak = smoothstep(0.6, 1.0, uReact);   // ~0 listening, 1 speaking
+  float amp = env * (base + speak * 0.26 * speechEnv(t) + 0.14 * uFlow + 0.10 * uLoad);
+  float y = amp * sin(phase);
 
-  for (int k = -3; k <= 3; k++) {
-    float i = floor(fi + 0.5) + float(k);
-    if (i < 0.0 || i > N - 1.0) continue;
+  // Crisp anti-aliased line. The vertical half-thickness is expanded by the
+  // slope so the stroke keeps a constant PERPENDICULAR width when steep, but the
+  // anti-alias band is held at a fixed ~1.5px in SCREEN space — otherwise the
+  // soft edge gets magnified at steep parts and reads as a glow/blur.
+  float dydx = amp * freq * cos(phase);
+  float halfWv = 0.0030 * sqrt(1.0 + dydx * dydx); // vertical half-thickness (thin line)
+  float pix = 1.4 / min(uResolution.x, uResolution.y);
+  float core = 1.0 - smoothstep(halfWv - pix, halfWv + pix, abs(q.y - y));
 
-    float bx = -A + i * spacing;
-    float nx = bx / A; // -1..1
-
-    // --- three distinct per-bar motion patterns (0..1) ---
-    // reactive: drifting multi-sine bell  (listening / speaking)
-    float bellR = exp(-pow((nx - center) * 1.25, 2.0));
-    float amp = 0.5 + 0.5 * barAmp(i, t);
-    float hReact = (0.18 + 0.82 * bellR) * (0.30 + 0.6 * amp);
-    // flow: a sine ripple travelling across the row  (thinking)
-    float bellF = exp(-pow(nx * 1.1, 2.0));
-    float hFlow = bellF * (0.30 + 0.55 * (0.5 + 0.5 * sin(i * 0.6 - t * 3.2)));
-    // load: a localized bump bouncing across like a loader  (connecting)
-    float hLoad = exp(-pow((nx - loadC) / 0.16, 2.0));
-
-    // Blend by state pattern weights over a low resting baseline.
-    float dyn = uReact * hReact + uFlow * hFlow + uLoad * hLoad;
-    float hh = clamp(0.10 + uLevel * dyn, 0.04, 1.0);
-    float halfH = maxH * hh * (0.9 + 0.1 * breath);
-
-    // Vertical capsule SDF -> rounded caps.
-    float cy = clamp(q.y, -halfH, halfH);
-    float dseg = length(vec2(q.x - bx, q.y - cy));
-    float sdf = dseg - radius;
-
-    float f = 1.0 - smoothstep(-aa, aa, sdf);
-    if (f > fill) {
-      fill = f;
-      // Vertical gradient: darker top -> lighter bottom (vivid palette).
-      float g = clamp((q.y / halfH) * 0.5 + 0.5, 0.0, 1.0); // 1 top, 0 bottom
-      vec3 topC = vivid(uHue) * 0.55;
-      vec3 botC = mix(vivid(uHue), vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
-      col = mix(botC, topC, g);
-    }
-    glow += exp(-pow(max(dseg - radius, 0.0) * 8.5, 1.4)) * (0.45 + 0.55 * hh);
-  }
-
-  glow = clamp(glow, 0.0, 1.0);
-  vec3 glowCol = mix(vivid(uHue), vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
-  // Soft central band so the colour bleeds into the white around the bars,
-  // tightened vertically so the bars stay crisp rather than hazy.
-  float band = exp(-pow(q.y / 0.20, 2.0)) * exp(-pow(q.x / 0.46, 2.0));
-  float haloA = clamp(glow * 0.36 + band * 0.09, 0.0, 0.6);
-
-  // State saturation.
+  // --- gradient colours flowing ALONG the string: broad, soft bands whose
+  // centres slowly drift, so the colours smoothly change over time. 1-3 colours
+  // crossfade in/out with uCount (a single colour fills the whole line). ---
+  vec3 k0 = vivid(uHue);
+  vec3 k1 = vivid(uHue1);
+  vec3 k2 = vivid(uHue2);
+  float gx = clamp(x + 0.5, 0.0, 1.0);             // 0..1 along the line
+  float m0 = 0.22 + 0.12 * sin(t * 0.13);
+  float m1 = 0.50 + 0.13 * sin(t * 0.11 + 2.1);
+  float m2 = 0.78 + 0.12 * sin(t * 0.17 + 4.2);
+  float w0 = exp(-pow((gx - m0) / 0.30, 2.0));
+  float w1 = exp(-pow((gx - m1) / 0.30, 2.0)) * clamp(uCount - 1.0, 0.0, 1.0);
+  float w2 = exp(-pow((gx - m2) / 0.30, 2.0)) * clamp(uCount - 2.0, 0.0, 1.0);
+  vec3 col = (k0 * w0 + k1 * w1 + k2 * w2) / (w0 + w1 + w2 + 1e-4);
+  col = saturate3(col, 1.2);
   col = desat(col, uSat);
-  glowCol = desat(glowCol, uSat);
 
-  vec4 outc = vec4(glowCol, haloA);
-  outc.rgb = mix(outc.rgb, col, fill);
-  outc.a = outc.a + fill * (1.0 - outc.a);
+  // Fade the ends earlier so the string sits smaller, with margin left & right.
+  float edgeFade = smoothstep(0.40, 0.24, abs(x));
 
-  // State presence.
-  float a = clamp(outc.a * uBright, 0.0, 1.0);
-  gl_FragColor = vec4(outc.rgb * a, a);
+  // Composite: a crisp line, no glow (premultiplied).
+  float a = core * edgeFade * uBright;
+  gl_FragColor = vec4(col * a, a);
 }
 `;
 
@@ -394,11 +389,9 @@ void main() {
   vec2 uv = gl_FragCoord.xy / uResolution.xy;
   float t = uTime;
 
-  // Speech-like envelope (irregular) — strong while speaking (uReact ~1),
-  // gentle while listening (~0.45), near-still otherwise.
-  float speechN = snoise(vec3(t * 2.4, 11.0, 3.0)) * 0.6
-                + snoise(vec3(t * 1.3, 7.0, 9.0)) * 0.4;
-  float speech = uReact * (0.5 + 0.5 * speechN);
+  // Speech activity with natural pauses (shared envelope): swells while speaking
+  // (uReact ~1), gentle while listening (~0.45), and ebbs into pauses.
+  float speech = uReact * speechEnv(t);
 
   // --- fluid motion: domain-warp the sampling position with slow flowing noise
   // so the oval undulates and morphs like liquid. uTime already integrates the
@@ -410,42 +403,59 @@ void main() {
     snoise(vec3(uv.x * 1.3, uv.y * 1.1 - slow, slow * 0.7)),
     snoise(vec3(uv.x * 1.3 + 5.0, uv.y * 1.1 + slow * 0.9, slow * 0.8 + 2.0))
   );
-  vec2 p = uv + warp * (0.12 + 0.10 * uReact); // flows more while speaking
+  vec2 p = uv + warp * (0.06 + 0.14 * uReact); // subtle at rest; flows more while speaking
 
   // Soft flowing field (sampled in the warped space) for gentle intensity drift.
-  float field = 0.62 * snoise(vec3(p.x * 0.9, p.y * 0.8 - slow, slow * 0.6))
-              + 0.38 * snoise(vec3(p.x * 1.6 + 3.0, p.y * 1.2 + slow, slow + 2.0));
+  // Low frequencies only + a flatter remap so the glow stays an even, soft bloom
+  // rather than throwing bright sparks/hotspots.
+  float field = 0.72 * snoise(vec3(p.x * 0.8, p.y * 0.7 - slow, slow * 0.6))
+              + 0.28 * snoise(vec3(p.x * 1.2 + 3.0, p.y * 1.0 + slow, slow + 2.0));
   field = field * 0.5 + 0.5;
-  field = mix(0.55, field, 0.9);
+  field = mix(0.66, field, 0.45);   // strongly flattened -> near-uniform glow
 
   // --- a soft bloom rising from the bottom edge: brightest low, fading up into
   // the dark (like Google's "Neural Expressive" UI). Kept SHORT, and a touch
   // taller at the left/right edges than in the middle so the top contour dips —
   // a slight U. Sampled in the WARPED space so it flows fluidly. ---
   float ex = clamp(abs(p.x - 0.5) * 2.0, 0.0, 1.0);          // 0 centre -> 1 at sides
-  float reachY = mix(0.26, 0.40, smoothstep(0.15, 1.0, ex)); // short centre, taller sides
-  reachY *= 1.0 + 0.20 * speech;                             // gentle swell on speech peaks (doesn't rise too tall)
+  float reachY = mix(0.17, 0.25, smoothstep(0.15, 1.0, ex)); // low + flatter: ~1/4 screen max
+  reachY *= 1.0 + 0.08 * speech;                             // gentle swell on speech peaks
   float mask = clamp(1.0 - smoothstep(0.0, reachY, p.y), 0.0, 1.0); // bright bottom -> fade up
 
   // Soft glow, modulated by the flowing field; breathes, swells with speech.
   float breath = 0.94 + 0.06 * sin(t * 0.5);
-  float glow = clamp(mask * (0.5 + 0.6 * field) * breath, 0.0, 1.0);
+  float glow = clamp(mask * (0.84 + 0.16 * field) * breath, 0.0, 1.0);
 
-  // --- palette spread by horizontal position so every slider colour shows:
-  // left -> colour 1, centre -> colour 2, right -> colour 3 (fixed, not
-  // time-cycling). Colours degrade gracefully as fewer are active. ---
+  // --- palette: three colours whose AMOUNTS breathe over time. Instead of a
+  // fixed left/centre/right split, each colour is a broad, soft band whose
+  // centre slowly drifts (low-rate sines), so the proportion of each colour on
+  // screen ebbs and flows. Sampled in the flowing (warped) space so the bands
+  // aren't straight lines. Bands gate in/out with uCount, so 1 or 2 colours
+  // degrade gracefully (and collapse to one hue when only one is active). ---
   vec3 c0 = vivid(uHue);
-  vec3 c1 = mix(c0, vivid(uHue1), clamp(uCount - 1.0, 0.0, 1.0));
-  vec3 c2 = mix(c1, vivid(uHue2), clamp(uCount - 2.0, 0.0, 1.0));
-  float s = clamp(uv.x, 0.0, 1.0) * 2.0;
-  vec3 col = s < 1.0 ? mix(c0, c1, smoothstep(0.0, 1.0, s))
-                     : mix(c1, c2, smoothstep(0.0, 1.0, s - 1.0));
+  vec3 c1 = vivid(uHue1);
+  vec3 c2 = vivid(uHue2);
+  // Drifting band centres -> the visible amount of each colour changes in time.
+  float m0 = 0.18 + 0.12 * sin(t * 0.11);
+  float m1 = 0.50 + 0.13 * sin(t * 0.09 + 2.1);
+  float m2 = 0.82 + 0.12 * sin(t * 0.13 + 4.2);
+  // Palette coordinate flows with the liquid field (organic, not a hard line).
+  float gx = clamp(p.x + 0.12 * (field - 0.5), 0.0, 1.0);
+  float w0 = exp(-pow((gx - m0) / 0.34, 2.0));
+  float w1 = exp(-pow((gx - m1) / 0.34, 2.0)) * clamp(uCount - 1.0, 0.0, 1.0);
+  float w2 = exp(-pow((gx - m2) / 0.34, 2.0)) * clamp(uCount - 2.0, 0.0, 1.0);
+  float wsum = w0 + w1 + w2 + 1e-4;
+  vec3 col = (c0 * w0 + c1 * w1 + c2 * w2) / wsum;
+  // The weighted blend of differing hues averages toward grey in overlap zones,
+  // so push saturation back up to keep the colours vivid.
+  col = saturate3(col, 1.3);
 
   col = desat(col, uSat);
 
-  // Speaking swells + pulses the glow; level lifts presence.
-  float pulse = 1.0 + 0.7 * speech;
-  float a = clamp(glow * (0.95 + 0.4 * uLevel) * pulse, 0.0, 0.97) * uBright;
+  // Speaking swells + pulses the glow; level lifts presence. Kept a touch
+  // dimmer overall so the aura reads as a soft bloom, not a bright wash.
+  float pulse = 1.0 + 0.65 * speech;
+  float a = clamp(glow * (0.78 + 0.32 * uLevel) * pulse, 0.0, 0.82) * uBright;
   a = clamp(a, 0.0, 1.0);
 
   gl_FragColor = vec4(col * a, a);
