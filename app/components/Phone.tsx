@@ -90,15 +90,25 @@ export default function Phone({
   // so bouncing both is harmless.
   const bouncerRef = useRef<HTMLDivElement>(null);
   const auraRef = useRef<HTMLDivElement>(null);
-  const bounce = (el: HTMLElement | null) => {
+  // `grow` keeps the scale >= 1 (a swell, no squash) — used for the aura, which
+  // fills the screen edge-to-edge, so scaling it DOWN would reveal the
+  // background around it. The bouncer (smaller than the screen) uses the full
+  // squash-and-overshoot springy bounce.
+  const bounce = (el: HTMLElement | null, grow = false) => {
     if (!el) return;
     el.animate(
-      [
-        { transform: "scale(1)", offset: 0 },
-        { transform: "scale(0.93)", offset: 0.3 },
-        { transform: "scale(1.03)", offset: 0.62 },
-        { transform: "scale(1)", offset: 1 },
-      ],
+      grow
+        ? [
+            { transform: "scale(1)", offset: 0 },
+            { transform: "scale(1.05)", offset: 0.4 },
+            { transform: "scale(1)", offset: 1 },
+          ]
+        : [
+            { transform: "scale(1)", offset: 0 },
+            { transform: "scale(0.93)", offset: 0.3 },
+            { transform: "scale(1.03)", offset: 0.62 },
+            { transform: "scale(1)", offset: 1 },
+          ],
       // ease-out -> reacts instantly on tap (no slow ramp-in), settles quickly.
       { duration: 340, easing: "ease-out" }
     );
@@ -134,7 +144,7 @@ export default function Phone({
     }
     if (!hit) return;
     bounce(bouncerRef.current);
-    bounce(auraRef.current);
+    bounce(auraRef.current, true); // grow-only so the full-screen aura never clips
   };
 
   return (
