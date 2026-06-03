@@ -33,6 +33,8 @@ export default function Phone({
   const [message, setMessage] = useState("");
   const canSend = message.trim().length >= 1;
   const send = () => setMessage("");
+  // Incremented on each wave tap to fire a one-shot pluck in the shader.
+  const [pluck, setPluck] = useState(0);
 
   // Desktop variant: user-resizable window. `size` is null until the first
   // drag, so the CSS default (min(1040px, 92vw)) applies until then; once set,
@@ -86,7 +88,13 @@ export default function Phone({
   // Tapping the orb gives it a gentle springy bounce — a small bit of delight.
   const bouncerRef = useRef<HTMLDivElement>(null);
   const onVizClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (viz !== "orb") return; // only the orb reacts to touch
+    // Tapping the wave plucks the string — fire a transient shader impulse.
+    if (viz === "wave") {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      setPluck((p) => p + 1);
+      return;
+    }
+    if (viz !== "orb") return; // only the orb + wave react to touch
     const el = bouncerRef.current;
     if (!el) return;
     // Only react to taps on the orb's disc, not the empty screen around it.
@@ -165,7 +173,13 @@ export default function Phone({
               <Sphere hues={hues} running={viz === "sphere"} state={state} dark={dark} />
             </div>
             <div className={`${styles.vizLayer} ${viz === "wave" ? styles.vizOn : ""}`}>
-              <Wave hues={hues} running={viz === "wave"} state={state} dark={dark} />
+              <Wave
+                hues={hues}
+                running={viz === "wave"}
+                state={state}
+                dark={dark}
+                pluck={pluck}
+              />
             </div>
           </div>
         </div>

@@ -30,6 +30,7 @@ uniform float uLoad;       // bouncing loader sweep  -> connecting
 uniform float uFlow;       // traveling / spinner    -> thinking
 uniform float uReact;      // reactive amplitude     -> listening / speaking
 uniform float uDark;       // 1 = dark theme, 0 = light (halo tuning)
+uniform float uPluck;      // transient tap impulse (1 -> 0), decayed in JS
 uniform float uHue1;       // colour 2 (degrees); uHue (above) is colour 1
 uniform float uHue2;       // colour 3 (degrees)
 uniform float uCount;      // active colours, lerped 1 .. 3
@@ -310,7 +311,7 @@ void main() {
 /* outer edge, like a circular audio spectrum analyser. The bars erupt    */
 /* outward on speech (uReact + speech envelope), idle into a short calm    */
 /* fringe, rotate while thinking (uFlow) and sweep like a loader when      */
-/* connecting (uLoad). Two faint arcs sit just inside the ring.           */
+/* connecting (uLoad). A thin static ring forms the base of the spikes.   */
 /* ------------------------------------------------------------------ */
 export const SPHERE_FRAGMENT = HEADER + SNOISE + COORDS + /* glsl */ `
 void main() {
@@ -339,7 +340,7 @@ void main() {
     + 0.45 * (0.5 + 0.5 * sin(ph * 7.0 + t * 5.7 + 1.3))
     + 0.60 * (0.5 + 0.5 * snoise(vec3(idx * 0.17 + rot, t * 1.8, 0.0)));
   spec = clamp(spec / 1.6, 0.0, 1.0);
-  spec = pow(spec, 1.35);                   // crisper peaks
+  spec = pow(spec, 2.1);                     // deeper valleys, crisper peaks
 
   // Connecting: a bright peak sweeping around the ring like a loader.
   float sweep = exp(-pow(sin((a - t * 2.2) * 0.5), 2.0) / 0.018);
@@ -349,7 +350,8 @@ void main() {
   // While speaking, the speech envelope makes the whole fringe ebb in pauses.
   float energy = mix(0.16, 1.0, uReact);
   float talk = mix(1.0, 0.32 + 0.68 * speechEnv(t), step(0.5, uReact));
-  float L = 0.012 + (0.175 * spec * energy) * talk + 0.018 * uReact;
+  // Small base so the valleys sit low (near the ring) and the peaks stand out.
+  float L = 0.005 + (0.195 * spec * energy) * talk + 0.008 * uReact;
 
   // --- Bar mask: angular fill (with gaps) x radial extent (R0 -> R0+L) ---
   float barHalf = 0.34;                     // fraction of each cell the bar fills
@@ -362,29 +364,24 @@ void main() {
   // Glow at each bar's tip (brightest point of the spike).
   float tip = inAng * exp(-pow((r - outer) / 0.02, 2.0));
 
-  // --- The ring + two faint inner arcs (slowly counter-rotating) ---
+  // --- The base ring the spikes grow from (static, thin). ---
   float ring = 1.0 - smoothstep(0.009, 0.012, abs(r - R0));
-  float arcR = R0 - 0.05;
-  float arcBand = 1.0 - smoothstep(0.005, 0.008, abs(r - arcR));
-  float arcA = smoothstep(0.55, 0.95, sin(a * 1.0 + t * 0.5));   // one short arc
-  float arcB = smoothstep(0.55, 0.95, sin(a * 1.0 - t * 0.4 + PI));// opposite arc
-  float arc = arcBand * (arcA + arcB);
 
-  // --- Palette: up to 3 hues blended around the ring (crossfade via uCount) ---
+  // --- Palette: up to 3 hues blended SEAMLESSLY around the ring. Colours sit at
+  // evenly-spaced angles and blend with periodic (wrap-around) weights, so there
+  // is no start/end seam and the hues fade softly into one another. The set
+  // slowly rotates; colours 2/3 crossfade in with uCount. ---
   vec3 k0 = vivid(uHue);
   vec3 k1 = vivid(uHue1);
   vec3 k2 = vivid(uHue2);
-  float m0 = 0.20 + 0.10 * sin(t * 0.13);
-  float m1 = 0.52 + 0.10 * sin(t * 0.11 + 2.1);
-  float m2 = 0.82 + 0.10 * sin(t * 0.17 + 4.2);
-  float w0 = exp(-pow((seg - m0) / 0.26, 2.0));
-  float w1 = exp(-pow((seg - m1) / 0.26, 2.0)) * clamp(uCount - 1.0, 0.0, 1.0);
-  float w2 = exp(-pow((seg - m2) / 0.26, 2.0)) * clamp(uCount - 2.0, 0.0, 1.0);
+  float spin = t * 0.16;
+  float sharp = 1.3;                          // lower = softer fade between hues
+  float w0 = exp(sharp * (cos(a - spin) - 1.0));
+  float w1 = exp(sharp * (cos(a - spin - TAU / 3.0) - 1.0)) * clamp(uCount - 1.0, 0.0, 1.0);
+  float w2 = exp(sharp * (cos(a - spin - 2.0 * TAU / 3.0) - 1.0)) * clamp(uCount - 2.0, 0.0, 1.0);
   vec3 col = (k0 * w0 + k1 * w1 + k2 * w2) / (w0 + w1 + w2 + 1e-4);
   col = saturate3(col, 1.25);
   col = desat(col, uSat);
-  // Arcs read as a contrasting accent hue.
-  vec3 arcCol = saturate3(vivid(uHue + 140.0), 1.2);
 
   // --- Composite (premultiplied, additive across the disjoint regions) ---
   float g = uBright;
@@ -400,10 +397,6 @@ void main() {
   float ringA = ring * 0.9 * g;
   pm += col * 1.05 * ringA;
   al += ringA;
-  // arcs
-  float arcAl = clamp(arc, 0.0, 1.0) * 0.6 * g;
-  pm += arcCol * arcAl;
-  al += arcAl;
 
   // Soft outer glow behind the fringe (mainly on dark, keeps it from looking flat).
   float glow = exp(-pow(max(r - R0, 0.0) / (0.10 + 0.10 * speech), 2.0)) * (1.0 - ring);
@@ -456,7 +449,12 @@ void main() {
   float base  = 0.018 + 0.022 * uReact;         // subtle ripple (listening stays low)
   float speak = smoothstep(0.6, 1.0, uReact);   // ~0 listening, 1 speaking
   float amp = env * (base + speak * 0.26 * speechEnv(t) + 0.14 * uFlow + 0.10 * uLoad);
+  // Tap "pluck": a transient that swells the packet and rings it like a plucked
+  // string. uPluck jumps to 1 on tap and decays in JS; the ringing is a faster
+  // overtone layered on top so it reads as a twang that settles, not a swell.
+  amp += env * uPluck * 0.34;
   float y = amp * sin(phase);
+  y += env * uPluck * 0.16 * sin(phase * 1.9 + t * 11.0);
 
   // Crisp anti-aliased line. The vertical half-thickness is expanded by the
   // slope so the stroke keeps a constant PERPENDICULAR width when steep, but the

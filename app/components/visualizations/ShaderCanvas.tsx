@@ -18,6 +18,7 @@ export type VisualizationProps = {
   className?: string; // forwarded to the wrapper, for sizing/positioning
   style?: CSSProperties; // forwarded to the wrapper (overrides the fill default)
   fallback?: ReactNode; // shown if WebGL is unavailable (defaults to a message)
+  pluck?: number; // increment to fire a transient tap impulse (uPluck 1 -> 0)
 };
 
 type Props = VisualizationProps & {
@@ -49,8 +50,12 @@ export default function ShaderCanvas({
   className,
   style,
   fallback,
+  pluck,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Tap impulse: jumps to 1 when `pluck` changes, then decays each frame.
+  const pluckImpulse = useRef(0);
+  const pluckMounted = useRef(false);
   // [hue0, hue1, hue2, count] targets; missing colours fall back to hue0.
   const colorTarget = useRef<[number, number, number, number]>([
     hues[0],
@@ -78,6 +83,14 @@ export default function ShaderCanvas({
   useEffect(() => {
     darkRef.current = dark;
   }, [dark]);
+  useEffect(() => {
+    // Ignore the initial mount value; only real taps (changes) fire a pluck.
+    if (!pluckMounted.current) {
+      pluckMounted.current = true;
+      return;
+    }
+    pluckImpulse.current = 1;
+  }, [pluck]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -133,6 +146,7 @@ export default function ShaderCanvas({
         uFlow: { value: stateTarget.current.flow },
         uReact: { value: stateTarget.current.react },
         uDark: { value: darkRef.current ? 1 : 0 },
+        uPluck: { value: 0 },
       },
     });
     const mesh = new Mesh(gl, { geometry: new Triangle(gl), program });
@@ -221,6 +235,10 @@ export default function ShaderCanvas({
       program.uniforms.uFlow.value = curFlow;
       program.uniforms.uReact.value = curReact;
       program.uniforms.uDark.value = darkRef.current ? 1 : 0;
+      // Tap impulse rings out then settles (string-pluck decay).
+      program.uniforms.uPluck.value = pluckImpulse.current;
+      pluckImpulse.current *= 0.9;
+      if (pluckImpulse.current < 0.001) pluckImpulse.current = 0;
       renderer.render({ scene: mesh });
       raf = requestAnimationFrame(frame);
     };

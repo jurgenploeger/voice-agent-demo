@@ -108,12 +108,14 @@
   cursor: ns-resize;
 }
 .resizeSE {
-  right: 0;
-  bottom: 0;
+  /* Sit on the 45deg point of the 22px rounded corner (inset ~6px) instead of
+     the old square corner, so the grip hugs the rounder frame. */
+  right: 6px;
+  bottom: 6px;
   width: 15px;
   height: 15px;
   border-radius: 5px;
-  transform: translate(38%, 38%);
+  transform: translate(50%, 50%);
   cursor: nwse-resize;
 }
 
