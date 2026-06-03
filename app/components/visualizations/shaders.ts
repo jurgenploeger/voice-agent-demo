@@ -306,6 +306,121 @@ void main() {
 `;
 
 /* ------------------------------------------------------------------ */
+/* SPHERE — a fixed ring with radial SPIKES/BARS fanning out from its     */
+/* outer edge, like a circular audio spectrum analyser. The bars erupt    */
+/* outward on speech (uReact + speech envelope), idle into a short calm    */
+/* fringe, rotate while thinking (uFlow) and sweep like a loader when      */
+/* connecting (uLoad). Two faint arcs sit just inside the ring.           */
+/* ------------------------------------------------------------------ */
+export const SPHERE_FRAGMENT = HEADER + SNOISE + COORDS + /* glsl */ `
+void main() {
+  vec2 q = coords();
+  float t = uTime;
+  float r = length(q);
+  float a = atan(q.y, q.x);                 // -PI..PI
+
+  float speech = uReact * speechEnv(t);
+  float aa = 1.6 / min(uResolution.x, uResolution.y);
+
+  // --- Geometry: bars live in N angular cells, starting at the ring R0 ---
+  float R0 = 0.205;                         // ring radius (bars start here)
+  const float N = 72.0;                     // number of radial bars
+  float seg = a / TAU + 0.5;                // 0..1 around the circle
+  float pos = seg * N;
+  float idx = floor(pos);
+  float cell = fract(pos) - 0.5;            // -0.5..0.5 within a bar slot
+
+  // --- Per-bar amplitude (0..1), animated like a spectrum analyser ---
+  // uFlow (thinking) rotates the whole pattern; the noise term gives it life.
+  float rot = t * (0.0 + 2.2 * uFlow);
+  float ph = idx * (TAU / N);
+  float spec =
+      0.55 * (0.5 + 0.5 * sin(ph * 3.0 - t * 4.0))
+    + 0.45 * (0.5 + 0.5 * sin(ph * 7.0 + t * 5.7 + 1.3))
+    + 0.60 * (0.5 + 0.5 * snoise(vec3(idx * 0.17 + rot, t * 1.8, 0.0)));
+  spec = clamp(spec / 1.6, 0.0, 1.0);
+  spec = pow(spec, 1.35);                   // crisper peaks
+
+  // Connecting: a bright peak sweeping around the ring like a loader.
+  float sweep = exp(-pow(sin((a - t * 2.2) * 0.5), 2.0) / 0.018);
+  spec = mix(spec, max(spec * 0.35, sweep), uLoad);
+
+  // State energy: idle barely twitches; listening gentle; speaking erupts.
+  // While speaking, the speech envelope makes the whole fringe ebb in pauses.
+  float energy = mix(0.16, 1.0, uReact);
+  float talk = mix(1.0, 0.32 + 0.68 * speechEnv(t), step(0.5, uReact));
+  float L = 0.012 + (0.175 * spec * energy) * talk + 0.018 * uReact;
+
+  // --- Bar mask: angular fill (with gaps) x radial extent (R0 -> R0+L) ---
+  float barHalf = 0.34;                     // fraction of each cell the bar fills
+  float angAA = clamp((N / TAU) * aa / max(r, 0.04), 0.012, 0.4);
+  float inAng = 1.0 - smoothstep(barHalf - angAA, barHalf + angAA, abs(cell));
+  float outer = R0 + L;
+  float inRad = smoothstep(R0 - aa, R0 + aa, r)
+              * (1.0 - smoothstep(outer - aa, outer + aa, r));
+  float bar = inAng * inRad;
+  // Glow at each bar's tip (brightest point of the spike).
+  float tip = inAng * exp(-pow((r - outer) / 0.02, 2.0));
+
+  // --- The ring + two faint inner arcs (slowly counter-rotating) ---
+  float ring = 1.0 - smoothstep(0.009, 0.012, abs(r - R0));
+  float arcR = R0 - 0.05;
+  float arcBand = 1.0 - smoothstep(0.005, 0.008, abs(r - arcR));
+  float arcA = smoothstep(0.55, 0.95, sin(a * 1.0 + t * 0.5));   // one short arc
+  float arcB = smoothstep(0.55, 0.95, sin(a * 1.0 - t * 0.4 + PI));// opposite arc
+  float arc = arcBand * (arcA + arcB);
+
+  // --- Palette: up to 3 hues blended around the ring (crossfade via uCount) ---
+  vec3 k0 = vivid(uHue);
+  vec3 k1 = vivid(uHue1);
+  vec3 k2 = vivid(uHue2);
+  float m0 = 0.20 + 0.10 * sin(t * 0.13);
+  float m1 = 0.52 + 0.10 * sin(t * 0.11 + 2.1);
+  float m2 = 0.82 + 0.10 * sin(t * 0.17 + 4.2);
+  float w0 = exp(-pow((seg - m0) / 0.26, 2.0));
+  float w1 = exp(-pow((seg - m1) / 0.26, 2.0)) * clamp(uCount - 1.0, 0.0, 1.0);
+  float w2 = exp(-pow((seg - m2) / 0.26, 2.0)) * clamp(uCount - 2.0, 0.0, 1.0);
+  vec3 col = (k0 * w0 + k1 * w1 + k2 * w2) / (w0 + w1 + w2 + 1e-4);
+  col = saturate3(col, 1.25);
+  col = desat(col, uSat);
+  // Arcs read as a contrasting accent hue.
+  vec3 arcCol = saturate3(vivid(uHue + 140.0), 1.2);
+
+  // --- Composite (premultiplied, additive across the disjoint regions) ---
+  float g = uBright;
+  vec3 pm = vec3(0.0);
+  float al = 0.0;
+  // bars
+  float barA = bar * g;
+  pm += col * barA;
+  al += barA;
+  // tip highlight (adds a touch of white energy to the spikes)
+  pm += tip * 0.5 * g * mix(col, vec3(1.0), 0.5);
+  // ring
+  float ringA = ring * 0.9 * g;
+  pm += col * 1.05 * ringA;
+  al += ringA;
+  // arcs
+  float arcAl = clamp(arc, 0.0, 1.0) * 0.6 * g;
+  pm += arcCol * arcAl;
+  al += arcAl;
+
+  // Soft outer glow behind the fringe (mainly on dark, keeps it from looking flat).
+  float glow = exp(-pow(max(r - R0, 0.0) / (0.10 + 0.10 * speech), 2.0)) * (1.0 - ring);
+  float glowA = glow * (mix(0.04, 0.10, uDark) + 0.06 * speech) * g;
+  pm += col * glowA;
+  al += glowA;
+
+  // Connecting pulses its overall opacity ("not ready yet").
+  float fade = mix(1.0, 0.5 + 0.35 * sin(t * 2.0), uLoad);
+  pm *= fade;
+  al = clamp(al * fade, 0.0, 1.0);
+
+  gl_FragColor = vec4(pm, al);
+}
+`;
+
+/* ------------------------------------------------------------------ */
 /* WAVE — an oscillating STRING: a travelling wave (moves left->right)    */
 /* under a Gaussian packet. Flat-lines during silence and erupts into     */
 /* waves on speech; waves pack CLOSER together while speaking; a gradient  */

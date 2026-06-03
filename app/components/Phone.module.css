@@ -34,22 +34,37 @@
 
 /* Desktop demo variant: a landscape app window instead of a phone frame.
    3:2 (1200x800), width-driven so it never overflows narrow >600px viewports;
-   height is derived as a concrete length so the swap can animate. 8px radius. */
+   height is derived as a concrete length so the swap can animate. Keeps the
+   same 6px device-bg bezel as the phone (inherited padding) so the outline
+   reads as the same white band/stroke around the screen; outer radius stays
+   concentric with the 16px screen (16 + 6px bezel = 22px). */
 .desktop {
   width: min(1040px, 92vw);
   height: calc(min(1040px, 92vw) * 2 / 3);
-  border-radius: 8px;
-  padding: 0;
+  border-radius: 22px;
 }
 .screen.screenDesktop {
-  border-radius: 8px;
-  /* Same hairline stroke as the mobile phone frame's outline. */
-  box-shadow: inset 0 0 0 1px var(--edge);
+  border-radius: 16px;
 }
 /* Inset the composer so it doesn't span the full width of the wider window. */
 .screenDesktop .dock {
   padding-left: max(16px, 18%);
   padding-right: max(16px, 18%);
+}
+
+/* In the desktop window the visual is centered in a size-clamped box (tied to
+   the shorter dimension) instead of filling the whole area — so resizing the
+   window only nudges the visual's size a little rather than scaling it 1:1. */
+.screenDesktop .viz {
+  display: grid;
+  place-items: center;
+}
+.screenDesktop .bouncer {
+  position: relative;
+  inset: auto;
+  height: clamp(220px, 70%, 360px);
+  width: auto;
+  aspect-ratio: 1 / 1;
 }
 
 /* While actively dragging a resize handle, kill the morph transition so the
