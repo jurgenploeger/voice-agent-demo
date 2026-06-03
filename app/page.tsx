@@ -188,20 +188,20 @@ export default function Page() {
             <button
               role="radio"
               aria-checked={device === "mobile"}
+              aria-label="Mobile"
               className={`${styles.deviceToggleItem} ${device === "mobile" ? styles.deviceToggleItemActive : ""}`}
               onClick={() => setDevice("mobile")}
             >
-              <DeviceMobile size={15} />
-              Mobile
+              <DeviceMobile size={18} />
             </button>
             <button
               role="radio"
               aria-checked={device === "desktop"}
+              aria-label="Desktop"
               className={`${styles.deviceToggleItem} ${device === "desktop" ? styles.deviceToggleItemActive : ""}`}
               onClick={() => setDevice("desktop")}
             >
-              <Monitor size={15} />
-              Desktop
+              <Monitor size={18} />
             </button>
           </div>
 
