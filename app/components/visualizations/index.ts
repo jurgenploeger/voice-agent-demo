@@ -10,6 +10,7 @@
 //   </div>
 
 export { default as Orb } from "./Orb";
+export { default as Sphere } from "./Sphere";
 export { default as Ring } from "./Ring";
 export { default as Wave } from "./Wave";
 export { default as Aura } from "./Aura";

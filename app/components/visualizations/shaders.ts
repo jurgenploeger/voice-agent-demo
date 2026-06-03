@@ -306,6 +306,81 @@ void main() {
 `;
 
 /* ------------------------------------------------------------------ */
+/* SPHERE — like the Orb but a soft GLOBE: no hard circle silhouette, the */
+/* body density tapers gently to transparent past the rim so the edges    */
+/* are soft and round. Gentle 3D shading + drifting interior colour, and   */
+/* a soft swell on speech.                                                 */
+/* ------------------------------------------------------------------ */
+export const SPHERE_FRAGMENT = HEADER + SNOISE + COORDS + /* glsl */ `
+void main() {
+  vec2 q = coords();
+  float t = uTime;
+  float r = length(q);
+
+  float speech = uReact * speechEnv(t);      // 0..~1 while speaking, ~0 in pauses
+  float R = 0.25 * (1.0 + speech * 0.07);    // gentle swell on speech bursts
+  float p = r / R;                           // normalized radius (0 centre, 1 rim)
+
+  // --- Soft globe body: NO hard circle edge, but still a defined globe. Solid
+  // through the core, then a soft (~30% of the radius) round falloff to 0 — a
+  // soft silhouette rather than a crisp line. ---
+  float core = exp(-2.0 * p * p);            // dense gaussian core
+  float body = smoothstep(1.06, 0.62, p);    // soft but defined round edge
+
+  // --- Drifting interior colour clouds (orb-like), kept soft and simple. ---
+  float nt = t * 0.10;
+  float nAmp = 0.18 + 0.16 * speech;
+  vec2 sp = (q / R) + nAmp * vec2(snoise(vec3(q / R * 0.7, nt)),
+                                  snoise(vec3(q / R * 0.7 + 4.7, nt)));
+  float bt = t;
+  float a0 =  bt * 0.42 + 2.0 * snoise(vec3(bt * 0.12, 0.0, 0.0));
+  float a1 = -bt * 0.34 + 2.0 * snoise(vec3(bt * 0.10, 5.0, 0.0)) + 2.0;
+  vec2 c0 = 0.40 * vec2(cos(a0), sin(a0));
+  vec2 c1 = 0.38 * vec2(cos(a1), sin(a1));
+  float b0 = smoothstep(1.15, 0.1, length(sp - c0));
+  float b1 = smoothstep(1.30, 0.1, length(sp - c1));
+
+  vec3 k0   = saturate3(vivid(uHue), 1.7);
+  vec3 kL   = saturate3(clamp(vivid(uHue) * 1.18, 0.0, 1.0), 1.3);
+  vec3 kD   = saturate3(vivid(uHue) * 0.62, 1.4);
+  vec3 colB = mix(kL, saturate3(vivid(uHue1), 1.7), clamp(uCount - 1.0, 0.0, 1.0));
+  vec3 colC = mix(kD, saturate3(vivid(uHue2), 1.7), clamp(uCount - 2.0, 0.0, 1.0));
+  vec3 base = saturate3(mix(vivid(uHue), vec3(1.0), 0.06), 1.3);
+  vec3 col = base;
+  col = mix(col, k0,   b0);
+  col = mix(col, colB, b1);
+  col = mix(col, colC, b0 * 0.5);
+  col = desat(col, uSat);
+
+  // --- Soft 3D globe shading (lit upper-left), gentle so the edge stays soft. ---
+  float z = sqrt(max(1.0 - p * p, 0.0));     // hemisphere from normalized radius
+  vec3 nrm = normalize(vec3(q / R, z + 1e-4));
+  vec3 Ld = normalize(vec3(-0.35, 0.45, 0.85));
+  float diff = clamp(dot(nrm, Ld), 0.0, 1.0);
+  col *= 0.66 + 0.34 * diff;                 // clearer volumetric shading (3D)
+  float spc = pow(diff, 6.0);
+  col += spc * (0.22 + 0.10 * uLevel);       // soft glassy highlight
+  float fres = pow(1.0 - clamp(nrm.z, 0.0, 1.0), 2.5);
+  col += fres * 0.10 * mix(vec3(1.0), k0, 0.6); // faint, soft rim tint
+
+  // --- Composite: soft globe over a soft halo (premultiplied) ---
+  vec3 haloCol = mix(mix(vivid(uHue), vec3(1.0), 0.75),
+                     mix(vivid(uHue), vec3(1.0), 0.32), uDark);
+  float halo = exp(-pow(max(r - R * 0.8, 0.0) / 0.09, 2.0));
+  float haloA = halo * (mix(0.05, 0.10, uDark) + 0.05 * uReact);
+
+  // Body alpha follows the soft falloff (no hard edge); fairly solid in the core.
+  float bodyA = clamp(body * (0.74 + 0.26 * core) * (0.9 + 0.1 * fres), 0.0, 1.0);
+  float fade = mix(1.0, 0.45 + 0.35 * sin(t * 2.0), uLoad);
+
+  vec3 pm = col * bodyA + haloCol * haloA * (1.0 - bodyA);
+  float al = bodyA + haloA * (1.0 - bodyA);
+  float g = uBright * fade;
+  gl_FragColor = vec4(pm * g, al * g);
+}
+`;
+
+/* ------------------------------------------------------------------ */
 /* RING — a fixed ring with radial SPIKES/BARS fanning out from its       */
 /* outer edge, like a circular audio spectrum analyser. Each bar bounces   */
 /* IN PLACE (no travel/rotation), so switching states is a smooth          */
@@ -331,15 +406,16 @@ void main() {
   float idx = floor(pos);
   float cell = fract(pos) - 0.5;            // -0.5..0.5 within a bar slot
 
-  // --- Per-bar amplitude (0..1): each bar bounces IN PLACE over time (no
-  // phase that travels around the ring), so nothing rotates and state changes
-  // read as a smooth amplitude crossfade. Two correlated noise octaves sampled
-  // at (bar index, time) give a lively-but-even spectrum. ---
-  float spec =
-      0.62 * (0.5 + 0.5 * snoise(vec3(idx * 0.30, t * 1.6, 0.0)))
-    + 0.38 * (0.5 + 0.5 * snoise(vec3(idx * 0.13 + 11.0, t * 1.0, 3.0)));
+  // --- Per-bar amplitude (0..1): a COUPLE of broad peaks that travel slowly
+  // around the ring (a gentle "wave"), rather than every bar jittering. Two low
+  // integer harmonics (2 and 3 lobes — seamless around the circle) combined and
+  // sharpened so most bars stay low and only a few peaks rise. ---
+  float ph = idx * (TAU / N);
+  float s1 = 0.5 + 0.5 * sin(ph * 2.0 - t * 1.7);
+  float s2 = 0.5 + 0.5 * sin(ph * 3.0 + t * 1.1 + 2.0);
+  float spec = pow(max(s1, 0.9 * s2), 2.8);  // a few defined peaks, low valleys
+  spec += 0.04 * snoise(vec3(idx * 0.25, t * 1.2, 0.0)); // tiny organic variation
   spec = clamp(spec, 0.0, 1.0);
-  spec = pow(spec, 1.9);                     // deep valleys, defined peaks
 
   // Connecting: all bars breathe together (a calm "working" pulse), no sweep.
   float pulse = 0.30 + 0.40 * (0.5 + 0.5 * sin(t * 2.2));

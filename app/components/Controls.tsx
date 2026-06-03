@@ -9,6 +9,7 @@ import { STATE_ORDER, STATE_TAB_LABEL } from "./stateLabels";
 
 const TABS: { id: Viz; label: string }[] = [
   { id: "orb", label: "Orb" },
+  { id: "sphere", label: "Sphere" },
   { id: "ring", label: "Ring" },
   { id: "aura", label: "Aura" },
   { id: "wave", label: "Wave" },

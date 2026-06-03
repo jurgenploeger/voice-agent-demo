@@ -5,6 +5,7 @@ import { SlidersHorizontal, Sun, Moon, Microphone, ArrowUp } from "@phosphor-ico
 import styles from "./Phone.module.css";
 import type { Viz } from "../page";
 import Orb from "./visualizations/Orb";
+import Sphere from "./visualizations/Sphere";
 import Ring from "./visualizations/Ring";
 import Aura from "./visualizations/Aura";
 import Wave from "./visualizations/Wave";
@@ -160,6 +161,9 @@ export default function Phone({
           <div ref={bouncerRef} className={styles.bouncer}>
             <div className={`${styles.vizLayer} ${viz === "orb" ? styles.vizOn : ""}`}>
               <Orb hues={hues} running={viz === "orb"} state={state} dark={dark} />
+            </div>
+            <div className={`${styles.vizLayer} ${viz === "sphere" ? styles.vizOn : ""}`}>
+              <Sphere hues={hues} running={viz === "sphere"} state={state} dark={dark} />
             </div>
             <div className={`${styles.vizLayer} ${viz === "ring" ? styles.vizOn : ""}`}>
               <Ring hues={hues} running={viz === "ring"} state={state} dark={dark} />

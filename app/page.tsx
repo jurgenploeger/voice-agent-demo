@@ -7,7 +7,7 @@ import Phone from "./components/Phone";
 import Controls from "./components/Controls";
 import { AgentState } from "./components/visualizations/states";
 
-export type Viz = "orb" | "ring" | "aura" | "wave";
+export type Viz = "orb" | "sphere" | "ring" | "aura" | "wave";
 
 // Deep electric blue-violet so the first render looks intentional (Siri-like).
 const DEFAULT_HUE = 252;
