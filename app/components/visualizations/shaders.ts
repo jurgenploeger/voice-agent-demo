@@ -30,7 +30,6 @@ uniform float uLoad;       // bouncing loader sweep  -> connecting
 uniform float uFlow;       // traveling / spinner    -> thinking
 uniform float uReact;      // reactive amplitude     -> listening / speaking
 uniform float uDark;       // 1 = dark theme, 0 = light (halo tuning)
-uniform float uPluck;      // transient tap impulse (1 -> 0), decayed in JS
 uniform float uHue1;       // colour 2 (degrees); uHue (above) is colour 1
 uniform float uHue2;       // colour 3 (degrees)
 uniform float uCount;      // active colours, lerped 1 .. 3
@@ -307,13 +306,14 @@ void main() {
 `;
 
 /* ------------------------------------------------------------------ */
-/* SPHERE — a fixed ring with radial SPIKES/BARS fanning out from its     */
-/* outer edge, like a circular audio spectrum analyser. The bars erupt    */
-/* outward on speech (uReact + speech envelope), idle into a short calm    */
-/* fringe, rotate while thinking (uFlow) and sweep like a loader when      */
-/* connecting (uLoad). A thin static ring forms the base of the spikes.   */
+/* RING — a fixed ring with radial SPIKES/BARS fanning out from its       */
+/* outer edge, like a circular audio spectrum analyser. Each bar bounces   */
+/* IN PLACE (no travel/rotation), so switching states is a smooth          */
+/* amplitude crossfade: bars erupt on speech, idle into a short calm       */
+/* fringe, and pulse gently when connecting. A thin static ring forms the  */
+/* base of the spikes.                                                     */
 /* ------------------------------------------------------------------ */
-export const SPHERE_FRAGMENT = HEADER + SNOISE + COORDS + /* glsl */ `
+export const RING_FRAGMENT = HEADER + SNOISE + COORDS + /* glsl */ `
 void main() {
   vec2 q = coords();
   float t = uTime;
@@ -331,27 +331,27 @@ void main() {
   float idx = floor(pos);
   float cell = fract(pos) - 0.5;            // -0.5..0.5 within a bar slot
 
-  // --- Per-bar amplitude (0..1), animated like a spectrum analyser ---
-  // uFlow (thinking) rotates the whole pattern; the noise term gives it life.
-  float rot = t * (0.0 + 2.2 * uFlow);
-  float ph = idx * (TAU / N);
+  // --- Per-bar amplitude (0..1): each bar bounces IN PLACE over time (no
+  // phase that travels around the ring), so nothing rotates and state changes
+  // read as a smooth amplitude crossfade. Two correlated noise octaves sampled
+  // at (bar index, time) give a lively-but-even spectrum. ---
   float spec =
-      0.55 * (0.5 + 0.5 * sin(ph * 3.0 - t * 4.0))
-    + 0.45 * (0.5 + 0.5 * sin(ph * 7.0 + t * 5.7 + 1.3))
-    + 0.60 * (0.5 + 0.5 * snoise(vec3(idx * 0.17 + rot, t * 1.8, 0.0)));
-  spec = clamp(spec / 1.6, 0.0, 1.0);
-  spec = pow(spec, 2.1);                     // deeper valleys, crisper peaks
+      0.62 * (0.5 + 0.5 * snoise(vec3(idx * 0.30, t * 1.6, 0.0)))
+    + 0.38 * (0.5 + 0.5 * snoise(vec3(idx * 0.13 + 11.0, t * 1.0, 3.0)));
+  spec = clamp(spec, 0.0, 1.0);
+  spec = pow(spec, 1.9);                     // deep valleys, defined peaks
 
-  // Connecting: a bright peak sweeping around the ring like a loader.
-  float sweep = exp(-pow(sin((a - t * 2.2) * 0.5), 2.0) / 0.018);
-  spec = mix(spec, max(spec * 0.35, sweep), uLoad);
+  // Connecting: all bars breathe together (a calm "working" pulse), no sweep.
+  float pulse = 0.30 + 0.40 * (0.5 + 0.5 * sin(t * 2.2));
+  spec = mix(spec, max(spec * 0.5, pulse), uLoad);
 
   // State energy: idle barely twitches; listening gentle; speaking erupts.
   // While speaking, the speech envelope makes the whole fringe ebb in pauses.
   float energy = mix(0.16, 1.0, uReact);
-  float talk = mix(1.0, 0.32 + 0.68 * speechEnv(t), step(0.5, uReact));
+  float talk = mix(1.0, 0.45 + 0.55 * speechEnv(t), step(0.5, uReact));
   // Small base so the valleys sit low (near the ring) and the peaks stand out.
-  float L = 0.005 + (0.195 * spec * energy) * talk + 0.008 * uReact;
+  // Moderate max length keeps the speaking fringe even, not wildly wavy.
+  float L = 0.005 + (0.135 * spec * energy) * talk + 0.006 * uReact;
 
   // --- Bar mask: angular fill (with gaps) x radial extent (R0 -> R0+L) ---
   float barHalf = 0.34;                     // fraction of each cell the bar fills
@@ -449,12 +449,7 @@ void main() {
   float base  = 0.018 + 0.022 * uReact;         // subtle ripple (listening stays low)
   float speak = smoothstep(0.6, 1.0, uReact);   // ~0 listening, 1 speaking
   float amp = env * (base + speak * 0.26 * speechEnv(t) + 0.14 * uFlow + 0.10 * uLoad);
-  // Tap "pluck": a transient that swells the packet and rings it like a plucked
-  // string. uPluck jumps to 1 on tap and decays in JS; the ringing is a faster
-  // overtone layered on top so it reads as a twang that settles, not a swell.
-  amp += env * uPluck * 0.34;
   float y = amp * sin(phase);
-  y += env * uPluck * 0.16 * sin(phase * 1.9 + t * 11.0);
 
   // Crisp anti-aliased line. The vertical half-thickness is expanded by the
   // slope so the stroke keeps a constant PERPENDICULAR width when steep, but the

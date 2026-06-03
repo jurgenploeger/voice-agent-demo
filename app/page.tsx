@@ -7,7 +7,7 @@ import Phone from "./components/Phone";
 import Controls from "./components/Controls";
 import { AgentState } from "./components/visualizations/states";
 
-export type Viz = "orb" | "sphere" | "aura" | "wave";
+export type Viz = "orb" | "ring" | "aura" | "wave";
 
 // Deep electric blue-violet so the first render looks intentional (Siri-like).
 const DEFAULT_HUE = 252;
@@ -25,7 +25,23 @@ export default function Page() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   // Desktop only: preview the demo as a phone or a landscape desktop window.
+  // `device` is the selected target (drives the toggle highlight); `shownDevice`
+  // is what's actually rendered. Switching crossfades: fade out, swap the layout
+  // while invisible, fade back in — avoids a jarring portrait<->landscape morph.
   const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
+  const [shownDevice, setShownDevice] = useState<"mobile" | "desktop">("mobile");
+  const [deviceFading, setDeviceFading] = useState(false);
+  const deviceTimer = useRef<number | null>(null);
+  const changeDevice = (d: "mobile" | "desktop") => {
+    if (d === device) return;
+    setDevice(d);
+    setDeviceFading(true);
+    if (deviceTimer.current != null) clearTimeout(deviceTimer.current);
+    deviceTimer.current = window.setTimeout(() => {
+      setShownDevice(d); // swap the layout while faded out
+      setDeviceFading(false);
+    }, 190);
+  };
   const hostRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   // Once the user flips the toggle, stop following the OS so their choice sticks.
@@ -190,7 +206,7 @@ export default function Page() {
               aria-checked={device === "mobile"}
               aria-label="Mobile"
               className={`${styles.deviceToggleItem} ${device === "mobile" ? styles.deviceToggleItemActive : ""}`}
-              onClick={() => setDevice("mobile")}
+              onClick={() => changeDevice("mobile")}
             >
               <DeviceMobile size={18} />
             </button>
@@ -199,22 +215,26 @@ export default function Page() {
               aria-checked={device === "desktop"}
               aria-label="Desktop"
               className={`${styles.deviceToggleItem} ${device === "desktop" ? styles.deviceToggleItemActive : ""}`}
-              onClick={() => setDevice("desktop")}
+              onClick={() => changeDevice("desktop")}
             >
               <Monitor size={18} />
             </button>
           </div>
 
-          <Phone
-            viz={viz}
-            hues={colors}
-            state={state}
-            dark={theme === "dark"}
-            showMenu={false}
-            onMenu={() => {}}
-            onToggleTheme={toggleTheme}
-            variant={device}
-          />
+          <div
+            className={`${styles.phoneFade} ${deviceFading ? styles.phoneFadeOut : ""}`}
+          >
+            <Phone
+              viz={viz}
+              hues={colors}
+              state={state}
+              dark={theme === "dark"}
+              showMenu={false}
+              onMenu={() => {}}
+              onToggleTheme={toggleTheme}
+              variant={shownDevice}
+            />
+          </div>
 
           <div className={styles.controls}>
             <Controls {...controlsProps} />

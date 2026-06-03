@@ -5,7 +5,7 @@ import { SlidersHorizontal, Sun, Moon, Microphone, ArrowUp } from "@phosphor-ico
 import styles from "./Phone.module.css";
 import type { Viz } from "../page";
 import Orb from "./visualizations/Orb";
-import Sphere from "./visualizations/Sphere";
+import Ring from "./visualizations/Ring";
 import Aura from "./visualizations/Aura";
 import Wave from "./visualizations/Wave";
 import { AgentState } from "./visualizations/states";
@@ -33,8 +33,6 @@ export default function Phone({
   const [message, setMessage] = useState("");
   const canSend = message.trim().length >= 1;
   const send = () => setMessage("");
-  // Incremented on each wave tap to fire a one-shot pluck in the shader.
-  const [pluck, setPluck] = useState(0);
 
   // Desktop variant: user-resizable window. `size` is null until the first
   // drag, so the CSS default (min(1040px, 92vw)) applies until then; once set,
@@ -88,13 +86,7 @@ export default function Phone({
   // Tapping the orb gives it a gentle springy bounce — a small bit of delight.
   const bouncerRef = useRef<HTMLDivElement>(null);
   const onVizClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Tapping the wave plucks the string — fire a transient shader impulse.
-    if (viz === "wave") {
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-      setPluck((p) => p + 1);
-      return;
-    }
-    if (viz !== "orb") return; // only the orb + wave react to touch
+    if (viz !== "orb") return; // only the orb reacts to touch
     const el = bouncerRef.current;
     if (!el) return;
     // Only react to taps on the orb's disc, not the empty screen around it.
@@ -169,17 +161,11 @@ export default function Phone({
             <div className={`${styles.vizLayer} ${viz === "orb" ? styles.vizOn : ""}`}>
               <Orb hues={hues} running={viz === "orb"} state={state} dark={dark} />
             </div>
-            <div className={`${styles.vizLayer} ${viz === "sphere" ? styles.vizOn : ""}`}>
-              <Sphere hues={hues} running={viz === "sphere"} state={state} dark={dark} />
+            <div className={`${styles.vizLayer} ${viz === "ring" ? styles.vizOn : ""}`}>
+              <Ring hues={hues} running={viz === "ring"} state={state} dark={dark} />
             </div>
             <div className={`${styles.vizLayer} ${viz === "wave" ? styles.vizOn : ""}`}>
-              <Wave
-                hues={hues}
-                running={viz === "wave"}
-                state={state}
-                dark={dark}
-                pluck={pluck}
-              />
+              <Wave hues={hues} running={viz === "wave"} state={state} dark={dark} />
             </div>
           </div>
         </div>

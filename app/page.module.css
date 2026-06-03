@@ -25,6 +25,16 @@
   width: min(390px, 90vw);
 }
 
+/* Crossfade the demo when switching mobile<->desktop (the layout swaps while
+   faded out, so there's no portrait<->landscape morph/zoom). */
+.phoneFade {
+  display: flex;
+  transition: opacity 0.19s ease;
+}
+.phoneFadeOut {
+  opacity: 0;
+}
+
 /* ---------- Device toggle (desktop, above the demo) ---------- */
 
 /* Track matches the Style/State segmented controls (.segFull). The active chip

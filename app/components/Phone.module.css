@@ -12,11 +12,9 @@
   /* Drop shadow removed; a hairline keeps the frame defined against the page. */
   outline: 1px solid var(--edge);
   outline-offset: -1px;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-    height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-    border-radius 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s ease,
-    outline-color 0.4s ease;
+  /* No size morph between variants — the swap is hidden by a crossfade (see
+     .phoneFade in page.module.css), so width/height/radius change instantly. */
+  transition: background 0.4s ease, outline-color 0.4s ease;
 }
 
 .screen {
@@ -28,8 +26,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: background 0.4s ease,
-    border-radius 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.4s ease;
 }
 
 /* Desktop demo variant: a landscape app window instead of a phone frame.
@@ -297,7 +294,6 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px 18px;
-  transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .field {
