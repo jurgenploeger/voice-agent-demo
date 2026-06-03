@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sun, Moon, X } from "@phosphor-icons/react";
+import { Sun, Moon, X, DeviceMobile, Monitor } from "@phosphor-icons/react";
 import styles from "./page.module.css";
 import Phone from "./components/Phone";
 import Controls from "./components/Controls";
@@ -24,6 +24,8 @@ export default function Page() {
   const [theme, setTheme] = useState<Theme>("light");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  // Desktop only: preview the demo as a phone or a landscape desktop window.
+  const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
   const hostRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   // Once the user flips the toggle, stop following the OS so their choice sticks.
@@ -178,6 +180,31 @@ export default function Page() {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
+          <div
+            className={styles.deviceToggle}
+            role="radiogroup"
+            aria-label="Demo device"
+          >
+            <button
+              role="radio"
+              aria-checked={device === "mobile"}
+              className={`${styles.deviceToggleItem} ${device === "mobile" ? styles.deviceToggleItemActive : ""}`}
+              onClick={() => setDevice("mobile")}
+            >
+              <DeviceMobile size={15} />
+              Mobile
+            </button>
+            <button
+              role="radio"
+              aria-checked={device === "desktop"}
+              className={`${styles.deviceToggleItem} ${device === "desktop" ? styles.deviceToggleItemActive : ""}`}
+              onClick={() => setDevice("desktop")}
+            >
+              <Monitor size={15} />
+              Desktop
+            </button>
+          </div>
+
           <Phone
             viz={viz}
             hues={colors}
@@ -186,6 +213,7 @@ export default function Page() {
             showMenu={false}
             onMenu={() => {}}
             onToggleTheme={toggleTheme}
+            variant={device}
           />
 
           <div className={styles.controls}>

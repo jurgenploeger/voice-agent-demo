@@ -18,6 +18,7 @@ export default function Phone({
   showMenu,
   onMenu,
   onToggleTheme,
+  variant = "mobile",
 }: {
   viz: Viz;
   hues: number[];
@@ -26,6 +27,7 @@ export default function Phone({
   showMenu: boolean; // mobile: header carries the hamburger + theme toggle
   onMenu: () => void;
   onToggleTheme: () => void;
+  variant?: "mobile" | "desktop"; // desktop: landscape window framing
 }) {
   const [message, setMessage] = useState("");
   const canSend = message.trim().length >= 1;
@@ -58,9 +60,11 @@ export default function Phone({
     );
   };
 
+  const isDesktop = variant === "desktop";
+
   return (
-    <div className={styles.phone}>
-      <div className={styles.screen}>
+    <div className={`${styles.phone} ${isDesktop ? styles.desktop : ""}`}>
+      <div className={`${styles.screen} ${isDesktop ? styles.screenDesktop : ""}`}>
         {/* Aura: aurora glow that hangs from the top of the screen, behind the
             header (spans the top third). Hidden unless the Aura style is on. */}
         <div

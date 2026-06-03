@@ -25,6 +25,38 @@
   width: min(390px, 90vw);
 }
 
+/* ---------- Device toggle (desktop, above the demo) ---------- */
+
+.deviceToggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--control-bg);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+  backdrop-filter: blur(6px);
+}
+.deviceToggleItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+.deviceToggleItem:not(.deviceToggleItemActive):hover {
+  color: var(--seg-hover-fg);
+  background: var(--seg-hover-bg);
+}
+.deviceToggleItemActive {
+  color: var(--accent-fg);
+  background: var(--accent);
+}
+
 /* ---------- Page theme toggle (desktop, top-right) ---------- */
 
 .themeToggle {
