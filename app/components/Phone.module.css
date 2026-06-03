@@ -53,21 +53,6 @@
   padding-right: max(16px, 18%);
 }
 
-/* In the desktop window the visual is centered in a size-clamped box (tied to
-   the shorter dimension) instead of filling the whole area — so resizing the
-   window only nudges the visual's size a little rather than scaling it 1:1. */
-.screenDesktop .viz {
-  display: grid;
-  place-items: center;
-}
-.screenDesktop .bouncer {
-  position: relative;
-  inset: auto;
-  height: clamp(220px, 70%, 360px);
-  width: auto;
-  aspect-ratio: 1 / 1;
-}
-
 /* While actively dragging a resize handle, kill the morph transition so the
    window tracks the pointer immediately instead of easing behind it. */
 .resizing {
@@ -264,12 +249,19 @@
   z-index: 1;
   flex: 1 1 auto;
   min-height: 0;
+  display: grid;
+  place-items: center;
 }
 
-/* Wrapper that the orb's tap-bounce scales (keeps the canvas mounted). */
+/* Wrapper that the tap-bounce scales (keeps the canvas mounted). The visual is
+   a size-clamped square tied to the shorter dimension — the SAME sizing in both
+   the mobile and desktop frames, so toggling between them morphs the size
+   smoothly instead of snapping, and resizing the desktop window only nudges it. */
 .bouncer {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  height: clamp(220px, 70%, 360px);
+  width: auto;
+  aspect-ratio: 1 / 1;
   transform-origin: 50% 50%;
   will-change: transform;
 }

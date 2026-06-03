@@ -328,11 +328,16 @@ void main() {
   float core = exp(-2.0 * p * p);
   float body = smoothstep(1.06, 0.62, p);
 
-  // Drifting interior colour clouds (orb-like), soft and simple.
+  // Drifting interior colour, displaced by concentric ripples so the shapes
+  // read as moving WAVES inside the sphere (livelier while speaking).
+  vec2 P = q / R;
   float nt = t * 0.10;
   float nAmp = 0.18 + 0.16 * speech;
-  vec2 sp = (q / R) + nAmp * vec2(snoise(vec3(q / R * 0.7, nt)),
-                                  snoise(vec3(q / R * 0.7 + 4.7, nt)));
+  vec2 sp = P + nAmp * vec2(snoise(vec3(P * 0.7, nt)),
+                            snoise(vec3(P * 0.7 + 4.7, nt)));
+  float ang = atan(P.y, P.x);
+  float wave = (0.07 + 0.13 * speech) * sin(length(P) * 5.0 - t * 3.0);
+  sp += wave * vec2(-sin(ang), cos(ang));
   float bt = t;
   float a0 =  bt * 0.42 + 2.0 * snoise(vec3(bt * 0.12, 0.0, 0.0));
   float a1 = -bt * 0.34 + 2.0 * snoise(vec3(bt * 0.10, 5.0, 0.0)) + 2.0;
@@ -368,7 +373,10 @@ void main() {
                      mix(vivid(uHue), vec3(1.0), 0.32), uDark);
   float halo = exp(-pow(max(r - R * 0.8, 0.0) / 0.09, 2.0));
   float haloA = halo * (mix(0.05, 0.10, uDark) + 0.05 * uReact);
-  float bodyA = clamp(body * (0.74 + 0.26 * core) * (0.9 + 0.1 * fres), 0.0, 1.0);
+  // Airy body: the gaps between colour are semi-transparent so the background
+  // shows through, and the drifting colour waves are the more solid parts.
+  float waves = clamp(b0 + 0.8 * b1, 0.0, 1.0);
+  float bodyA = clamp(body * (0.30 + 0.5 * waves + 0.12 * core) * (0.92 + 0.08 * fres), 0.0, 1.0);
   float fade = mix(1.0, 0.45 + 0.35 * sin(t * 2.0), uLoad);
   vec3 pm = col * bodyA + haloCol * haloA * (1.0 - bodyA);
   float al = bodyA + haloA * (1.0 - bodyA);
