@@ -40,7 +40,7 @@ body {
      it blend through instead of clashing with an opaque fill. */
   --glass-bg: rgba(255, 255, 255, 0.7);
   --field-hint: rgba(0, 0, 0, 0.45);
-  --composer-edge: rgba(0, 0, 0, 0.2);
+  --composer-edge: rgba(0, 0, 0, 0.14);
   /* Soft lift so the near-white pill separates from the near-white page. */
   --composer-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
 }
