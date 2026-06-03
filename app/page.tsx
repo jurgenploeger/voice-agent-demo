@@ -25,23 +25,9 @@ export default function Page() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   // Desktop only: preview the demo as a phone or a landscape desktop window.
-  // `device` is the selected target (drives the toggle highlight); `shownDevice`
-  // is what's actually rendered. Switching crossfades: fade out, swap the layout
-  // while invisible, fade back in — avoids a jarring portrait<->landscape morph.
+  // Switching smoothly morphs the frame's size/radius (see the transitions on
+  // .phone / .screen / .dock in Phone.module.css).
   const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
-  const [shownDevice, setShownDevice] = useState<"mobile" | "desktop">("mobile");
-  const [deviceFading, setDeviceFading] = useState(false);
-  const deviceTimer = useRef<number | null>(null);
-  const changeDevice = (d: "mobile" | "desktop") => {
-    if (d === device) return;
-    setDevice(d);
-    setDeviceFading(true);
-    if (deviceTimer.current != null) clearTimeout(deviceTimer.current);
-    deviceTimer.current = window.setTimeout(() => {
-      setShownDevice(d); // swap the layout while faded out
-      setDeviceFading(false);
-    }, 190);
-  };
   const hostRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   // Once the user flips the toggle, stop following the OS so their choice sticks.
@@ -206,7 +192,7 @@ export default function Page() {
               aria-checked={device === "mobile"}
               aria-label="Mobile"
               className={`${styles.deviceToggleItem} ${device === "mobile" ? styles.deviceToggleItemActive : ""}`}
-              onClick={() => changeDevice("mobile")}
+              onClick={() => setDevice("mobile")}
             >
               <DeviceMobile size={18} />
             </button>
@@ -215,26 +201,22 @@ export default function Page() {
               aria-checked={device === "desktop"}
               aria-label="Desktop"
               className={`${styles.deviceToggleItem} ${device === "desktop" ? styles.deviceToggleItemActive : ""}`}
-              onClick={() => changeDevice("desktop")}
+              onClick={() => setDevice("desktop")}
             >
               <Monitor size={18} />
             </button>
           </div>
 
-          <div
-            className={`${styles.phoneFade} ${deviceFading ? styles.phoneFadeOut : ""}`}
-          >
-            <Phone
-              viz={viz}
-              hues={colors}
-              state={state}
-              dark={theme === "dark"}
-              showMenu={false}
-              onMenu={() => {}}
-              onToggleTheme={toggleTheme}
-              variant={shownDevice}
-            />
-          </div>
+          <Phone
+            viz={viz}
+            hues={colors}
+            state={state}
+            dark={theme === "dark"}
+            showMenu={false}
+            onMenu={() => {}}
+            onToggleTheme={toggleTheme}
+            variant={device}
+          />
 
           <div className={styles.controls}>
             <Controls {...controlsProps} />
