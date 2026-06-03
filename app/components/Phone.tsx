@@ -108,6 +108,31 @@ export default function Phone({
     const target = e.target as HTMLElement;
     if (target.closest("button") || target.closest("input")) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Only bounce when the tap actually lands on the active visual, not the
+    // empty background around it. Each style has its own hit region.
+    let hit = false;
+    if (viz === "aura") {
+      // The aura glow pools toward the bottom of the screen.
+      const a = auraRef.current;
+      if (a) {
+        const rect = a.getBoundingClientRect();
+        hit = (e.clientY - rect.top) / rect.height > 0.6;
+      }
+    } else {
+      const b = bouncerRef.current;
+      if (b) {
+        const rect = b.getBoundingClientRect();
+        const m = Math.min(rect.width, rect.height);
+        const dx = (e.clientX - (rect.left + rect.width / 2)) / m;
+        const dy = (e.clientY - (rect.top + rect.height / 2)) / m;
+        const dist = Math.hypot(dx, dy);
+        if (viz === "orb" || viz === "sphere") hit = dist < 0.32;
+        else if (viz === "ring") hit = dist < 0.46;
+        else hit = Math.abs(dy) < 0.14 && Math.abs(dx) < 0.5; // wave: the line band
+      }
+    }
+    if (!hit) return;
     bounce(bouncerRef.current);
     bounce(auraRef.current);
   };

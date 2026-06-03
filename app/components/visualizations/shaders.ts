@@ -322,7 +322,7 @@ void main() {
   float r = length(q);
 
   float speech = uReact * speechEnv(t);      // 0..~1 while speaking, ~0 in pauses
-  float R = 0.26 * (1.0 + speech * 0.06);    // gentle swell on speech bursts
+  float R = 0.24 * (1.0 + speech * 0.08);    // same base size as the Orb
   float aa = 1.6 / min(uResolution.x, uResolution.y);
 
   // Soft-edged sphere disc; the bright rim (below) defines the silhouette.
@@ -331,19 +331,28 @@ void main() {
   float z = sqrt(max(R * R - r * r, 0.0));
   vec3 nrm = normalize(vec3(q, z + 1e-4));
 
-  // Interior coords + a gentle liquid warp.
+  // Interior coords with a SWIRLING vortex + turbulent warp, so the colour
+  // ribbons flow and twist like the frozen swirls inside a glass marble —
+  // much livelier while speaking. The swirl is radius-dependent (a vortex).
   vec2 P = q / R;
-  float nt = t * 0.09;
-  float nAmp = 0.16 + 0.14 * speech;
-  vec2 sp = P + nAmp * vec2(snoise(vec3(P * 0.7, nt)),
-                            snoise(vec3(P * 0.7 + 4.7, nt)));
+  float pr = length(P);
+  float swirl = (0.6 + 2.2 * speech) * (0.55 - 0.35 * pr) + t * 0.22 * (0.4 + speech);
+  vec2 Ps = rot2(P, swirl);
+  float nt = t * 0.12;
+  float nAmp = 0.14 + 0.34 * speech;          // warps far more on speech
+  vec2 sp = Ps + nAmp * vec2(
+      snoise(vec3(Ps * 0.8, nt)) + 0.5 * snoise(vec3(Ps * 1.9, nt * 1.4)),
+      snoise(vec3(Ps * 0.8 + 4.7, nt)) + 0.5 * snoise(vec3(Ps * 1.9 + 2.0, nt * 1.4)));
 
-  // Vivid, neon palette so the blobs glow on the dark glass.
-  vec3 k0 = saturate3(vivid(uHue),  2.0);
-  vec3 k1 = saturate3(vivid(uHue1), 2.0);
-  vec3 k2 = saturate3(vivid(uHue2), 2.0);
-  vec3 kLight = saturate3(clamp(vivid(uHue) * 1.25, 0.0, 1.0), 1.7);
-  vec3 kDeep  = saturate3(vivid(uHue) * 0.72, 1.95);
+  // Vivid, neon palette. Saturation is eased back in LIGHT mode and the deep
+  // shade is kept bright there, so the blobs never read as near-black on the
+  // white page (dark mode keeps the deep, glassy look).
+  float blobSat = mix(1.6, 2.0, uDark);
+  vec3 k0 = saturate3(vivid(uHue),  blobSat);
+  vec3 k1 = saturate3(vivid(uHue1), blobSat);
+  vec3 k2 = saturate3(vivid(uHue2), blobSat);
+  vec3 kLight = saturate3(clamp(vivid(uHue) * 1.25, 0.0, 1.0), mix(1.45, 1.7, uDark));
+  vec3 kDeep  = saturate3(vivid(uHue) * mix(1.0, 0.72, uDark), mix(1.5, 1.95, uDark));
   vec3 colB = mix(kLight, k1, clamp(uCount - 1.0, 0.0, 1.0));
   vec3 colC = mix(kDeep,  k2, clamp(uCount - 2.0, 0.0, 1.0));
 
@@ -429,16 +438,15 @@ void main() {
   float idx = floor(pos);
   float cell = fract(pos) - 0.5;            // -0.5..0.5 within a bar slot
 
-  // --- Per-bar amplitude (0..1): a COUPLE of broad peaks that travel slowly
-  // around the ring (a gentle "wave"), rather than every bar jittering. Two low
-  // integer harmonics (2 and 3 lobes — seamless around the circle) combined and
-  // sharpened so most bars stay low and only a few peaks rise. ---
+  // --- Per-bar amplitude (0..1): a broad travelling swell sets WHERE the
+  // energy is (a couple of peak regions), and per-bar noise gives each bar its
+  // own height inside that — so the peaks are spiky/bespoke (distinct bars)
+  // rather than one smooth wave. Animated at a moderate rate (lively, not
+  // frantic), sharpened so valleys stay low. ---
   float ph = idx * (TAU / N);
-  float s1 = 0.5 + 0.5 * sin(ph * 2.0 - t * 1.7);
-  float s2 = 0.5 + 0.5 * sin(ph * 3.0 + t * 1.1 + 2.0);
-  float spec = pow(max(s1, 0.9 * s2), 2.8);  // a few defined peaks, low valleys
-  spec += 0.04 * snoise(vec3(idx * 0.25, t * 1.2, 0.0)); // tiny organic variation
-  spec = clamp(spec, 0.0, 1.0);
+  float env = 0.40 + 0.60 * (0.5 + 0.5 * sin(ph * 2.0 - t * 1.2)); // broad swell (~2 regions)
+  float perBar = 0.5 + 0.5 * snoise(vec3(idx * 0.7, t * 1.0, 0.0)); // individual bar heights
+  float spec = pow(clamp(env * perBar, 0.0, 1.0), 1.7); // distinct, spiky peaks
 
   // Connecting: all bars breathe together (a calm "working" pulse), no sweep.
   float pulse = 0.30 + 0.40 * (0.5 + 0.5 * sin(t * 2.2));

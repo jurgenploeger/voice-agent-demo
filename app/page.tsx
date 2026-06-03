@@ -16,7 +16,7 @@ type Theme = "light" | "dark";
 
 export default function Page() {
   const [viz, setViz] = useState<Viz>("orb");
-  const [state, setState] = useState<AgentState>("listening");
+  const [state, setState] = useState<AgentState>("speaking");
   const [colors, setColors] = useState<number[]>([DEFAULT_HUE]); // 1-3 hues
   // Stable per-colour ids so colour rows can animate in/out by identity.
   const [colorIds, setColorIds] = useState<number[]>([0]);
