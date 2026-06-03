@@ -331,12 +331,16 @@ void main() {
   // Drifting interior colour, displaced by concentric ripples so the shapes
   // read as moving WAVES inside the sphere (livelier while speaking).
   vec2 P = q / R;
+  float pl = length(P);
   float nt = t * 0.10;
-  float nAmp = 0.18 + 0.16 * speech;
+  float nAmp = 0.15 + 0.10 * speech;          // gentler warp so the waves don't fold
   vec2 sp = P + nAmp * vec2(snoise(vec3(P * 0.7, nt)),
                             snoise(vec3(P * 0.7 + 4.7, nt)));
+  // Concentric ripple displaced tangentially — but faded out near the centre,
+  // where the angle is undefined and the displacement would otherwise spin and
+  // glitch (most visible when the amplitude rises on speech pulses).
   float ang = atan(P.y, P.x);
-  float wave = (0.07 + 0.13 * speech) * sin(length(P) * 5.0 - t * 3.0);
+  float wave = (0.05 + 0.08 * speech) * sin(pl * 5.0 - t * 3.0) * smoothstep(0.0, 0.4, pl);
   sp += wave * vec2(-sin(ang), cos(ang));
   float bt = t;
   float a0 =  bt * 0.42 + 2.0 * snoise(vec3(bt * 0.12, 0.0, 0.0));
