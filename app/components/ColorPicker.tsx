@@ -247,21 +247,95 @@ export default function ColorPickerOverlay({
     setPos({ left, top });
   }, [isMobile, anchorRect]);
 
+  // Mobile: scroll-to-dismiss, mirroring the Settings sheet. The sheet sits at
+  // the bottom of a scroll host with two snap stops (dismissed / open); the
+  // entrance and tap/close are tweened so they glide instead of snapping.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const closingRef = useRef(false);
+  const tweenRef = useRef<number | null>(null);
+  const tweenTo = (to: number, done?: () => void) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (tweenRef.current != null) cancelAnimationFrame(tweenRef.current);
+    const from = el.scrollTop;
+    const dist = to - from;
+    const dur = 300;
+    const ease = (x: number) => 1 - Math.pow(1 - x, 3); // ease-out cubic
+    el.style.scrollSnapType = "none"; // don't let mandatory snap fight the tween
+    let start: number | null = null;
+    const step = (ts: number) => {
+      if (start == null) start = ts;
+      const k = Math.min(1, (ts - start) / dur);
+      el.scrollTop = from + dist * ease(k);
+      if (k < 1) {
+        tweenRef.current = requestAnimationFrame(step);
+      } else {
+        tweenRef.current = null;
+        el.style.scrollSnapType = "";
+        done?.();
+      }
+    };
+    tweenRef.current = requestAnimationFrame(step);
+  };
+  // Entrance: start dismissed (sheet below the fold) then glide it up.
+  useEffect(() => {
+    if (!isMobile || !mounted) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
+    const id = requestAnimationFrame(() =>
+      tweenTo(el.scrollHeight - el.clientHeight)
+    );
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, mounted]);
+  const onSheetScroll = () => {
+    const el = scrollRef.current;
+    if (!el || closingRef.current || tweenRef.current != null) return;
+    const range = el.scrollHeight - el.clientHeight;
+    const p = range > 0 ? el.scrollTop / range : 1; // 1 = open, 0 = dismissed
+    if (p < 0.15) {
+      closingRef.current = true;
+      onClose();
+    }
+  };
+  const closeWithScroll = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    tweenTo(0, onClose); // glide the sheet down, then unmount
+  };
+
   if (!mounted) return null;
 
   if (isMobile) {
     return createPortal(
       <>
-        <div className={styles.sheetScrim} onClick={onClose} />
-        <div className={styles.sheet} role="dialog" aria-label={label}>
-          <div className={styles.sheetHead}>
-            <span className={styles.sheetTitle}>{label}</span>
-            <button className={styles.sheetClose} aria-label="Done" onClick={onClose}>
-              <X size={18} weight="bold" />
-            </button>
-          </div>
-          <div className={styles.sheetBody}>
-            <PickerPanel color={color} onChange={onChange} />
+        <div className={styles.sheetScrim} aria-hidden />
+        <div
+          className={styles.sheetScroll}
+          ref={scrollRef}
+          onScroll={onSheetScroll}
+        >
+          {/* Transparent area above the sheet: tap or scroll to it to dismiss. */}
+          <button
+            className={styles.sheetDismissArea}
+            aria-label="Close"
+            onClick={closeWithScroll}
+          />
+          <div className={styles.sheet} role="dialog" aria-label={label}>
+            <div className={styles.sheetHead}>
+              <span className={styles.sheetTitle}>{label}</span>
+              <button
+                className={styles.sheetClose}
+                aria-label="Done"
+                onClick={closeWithScroll}
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
+            <div className={styles.sheetBody}>
+              <PickerPanel color={color} onChange={onChange} />
+            </div>
           </div>
         </div>
       </>,

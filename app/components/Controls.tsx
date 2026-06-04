@@ -28,9 +28,16 @@ type Props = {
   addColor: () => void;
   removeColor: (i: number) => void;
   shuffle: () => void;
+  size: number; // visualization size multiplier
+  setSize: (s: number) => void;
   isMobile: boolean; // picker shows as a stacked sheet on mobile, popover on desktop
   onPickerOpenChange?: (open: boolean) => void; // lets the page recede the sheet behind
 };
+
+// Bounds for the Size slider — symmetric around the default (1) so the handle
+// starts dead-centre on load.
+const SIZE_MIN = 0.7;
+const SIZE_MAX = 1.3;
 
 // Matches the swatch enter/exit animation duration in page.module.css.
 const SWATCH_ANIM_MS = 300;
@@ -46,6 +53,8 @@ export default function Controls({
   addColor,
   removeColor,
   shuffle,
+  size,
+  setSize,
   isMobile,
   onPickerOpenChange,
 }: Props) {
@@ -131,6 +140,21 @@ export default function Controls({
         </div>
       </div>
 
+      {/* Size — scales the orb / glow / ring / wave (the aura fills the screen). */}
+      <div className={styles.control}>
+        <span className={styles.controlLabel}>Size</span>
+        <input
+          className={styles.slider}
+          type="range"
+          min={SIZE_MIN}
+          max={SIZE_MAX}
+          step={0.01}
+          value={size}
+          onChange={(e) => setSize(Number(e.target.value))}
+          aria-label="Visualization size"
+        />
+      </div>
+
       {/* Colors: up to three side-by-side swatches. Each opens the full-colour
           picker (popover on desktop, stacked sheet on mobile). */}
       <div className={styles.control}>
@@ -158,7 +182,7 @@ export default function Controls({
                     aria-label={`Remove color ${i + 1}`}
                     onClick={() => handleRemove(i)}
                   >
-                    <X size={11} weight="bold" />
+                    <X size={12} weight="bold" />
                   </button>
                 )}
               </div>
@@ -175,9 +199,8 @@ export default function Controls({
           >
             <Plus size={16} weight="bold" />
           </button>
-        </div>
 
-        <div className={styles.colorActions}>
+          {/* Shuffle sits inline after the swatches. */}
           <button className={styles.addColor} onClick={shuffle}>
             <Shuffle size={14} weight="bold" />
             Shuffle

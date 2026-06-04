@@ -16,33 +16,35 @@ body {
   --font-display: var(--font-geist-sans);
   --font-text: var(--font-geist-sans);
 
-  /* Light theme (default). Only these tokens change between themes — the
+  /* Light theme (default). Built from the "slate" palette; the darkest slate
+     (slate/900 #1A1B25 = rgb 26 27 37) backs every black-based transparency at
+     the same alpha. Only these tokens change between themes — the
      visualizations stay colored via their own hue/stop controls. */
-  --page-bg: #f9f9f9;
-  --device-bg: #ffffff;
+  --page-bg: #f6f8fa; /* slate/50 */
+  --device-bg: #ffffff; /* screen/device + sheets are pure white */
   --screen-bg: #ffffff;
-  --edge: rgba(0, 0, 0, 0.08);
-  --hairline: rgba(0, 0, 0, 0.08);
-  --text: #111111;
-  --text-soft: #1c1c1e;
-  --muted: #9a9aa0;
-  --field-bg: #f4f4f6;
-  --control-bg: rgba(0, 0, 0, 0.05);
-  --control-edge: rgba(0, 0, 0, 0.06);
-  --accent: #161618;
-  --accent-fg: #ffffff;
-  --accent-hover: #2e2e31;
-  --home-bar: #1c1c1e;
-  --swatch-ring: #ffffff;
-  --seg-hover-bg: rgba(0, 0, 0, 0.09);
-  --seg-hover-fg: #4a4a50;
+  --edge: rgba(26, 27, 37, 0.08);
+  --hairline: rgba(26, 27, 37, 0.08);
+  --text: #1a1b25; /* slate/900 */
+  --text-soft: #30313d; /* slate/800 */
+  --muted: #87909f; /* slate/400 */
+  --field-bg: #ebeef1; /* slate/100 */
+  --control-bg: rgba(26, 27, 37, 0.05);
+  --control-edge: rgba(26, 27, 37, 0.06);
+  --accent: #1a1b25; /* slate/900 */
+  --accent-fg: #ffffff; /* palette specifies white as the foreground on dark slate */
+  --accent-hover: #30313d; /* slate/800 */
+  --home-bar: #30313d; /* slate/800 */
+  --swatch-ring: #f6f8fa; /* slate/50 */
+  --seg-hover-bg: rgba(26, 27, 37, 0.09);
+  --seg-hover-fg: #414552; /* slate/700 */
   /* Translucent glass for screen chrome (composer) so colour gradients behind
      it blend through instead of clashing with an opaque fill. */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --field-hint: rgba(0, 0, 0, 0.45);
-  --composer-edge: rgba(0, 0, 0, 0.14);
-  /* Soft lift so the near-white pill separates from the near-white page. */
-  --composer-shadow: 0 2px 10px rgba(0, 0, 0, 0.07);
+  --glass-bg: rgba(255, 255, 255, 0.7); /* white/translucent composer + attach button */
+  --field-hint: rgba(26, 27, 37, 0.45);
+  --composer-edge: rgba(26, 27, 37, 0.14);
+  /* Soft lift so the near-white pill separates from the page. */
+  --composer-shadow: 0 2px 10px rgba(26, 27, 37, 0.07);
 }
 
 [data-theme="dark"] {

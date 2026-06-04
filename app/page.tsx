@@ -34,6 +34,9 @@ export default function Page() {
   // Switching smoothly morphs the frame's size/radius (see the transitions on
   // .phone / .screen / .dock in Phone.module.css).
   const [device, setDevice] = useState<"mobile" | "desktop">("mobile");
+  // Visualization size multiplier (orb / glow / ring / wave). Bounded so it
+  // can't shrink to nothing or overflow the screen. See SIZE_MIN/MAX in Controls.
+  const [vizSize, setVizSize] = useState(1);
   const hostRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   // Once the user flips the toggle, stop following the OS so their choice sticks.
@@ -149,6 +152,8 @@ export default function Page() {
     addColor,
     removeColor,
     shuffle,
+    size: vizSize,
+    setSize: setVizSize,
     isMobile,
     onPickerOpenChange: setPickerOpen,
   };
@@ -196,6 +201,7 @@ export default function Page() {
             colors={colors}
             state={state}
             dark={theme === "dark"}
+            vizScale={vizSize}
             showMenu={false}
             onMenu={() => {}}
             onToggleTheme={toggleTheme}
@@ -218,6 +224,7 @@ export default function Page() {
               colors={colors}
               state={state}
               dark={theme === "dark"}
+              vizScale={vizSize}
               showMenu
               onMenu={openSheet}
               onToggleTheme={toggleTheme}

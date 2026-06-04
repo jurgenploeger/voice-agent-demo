@@ -65,10 +65,11 @@
   margin-top: 14px;
 }
 .hexPreview {
-  width: 28px;
-  height: 28px;
+  /* one preset-cell wide (presets are a 6-col grid with 8px gaps), kept square,
+     so the preview swatch matches the preset swatches at any sheet width. */
+  flex: 0 0 calc((100% - 5 * 8px) / 6);
+  aspect-ratio: 1;
   border-radius: 8px;
-  flex: 0 0 auto;
   box-shadow: inset 0 0 0 1px var(--edge);
 }
 .hexField {
@@ -141,13 +142,13 @@
   box-shadow:
     0 0 0 1px var(--edge),
     0 12px 40px rgba(0, 0, 0, 0.18);
-  animation: popIn 0.16s ease-out;
-  transform-origin: top left;
+  animation: popIn 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  transform-origin: bottom center;
 }
 @keyframes popIn {
   from {
     opacity: 0;
-    transform: translateY(-6px) scale(0.97);
+    transform: translateY(12px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -168,6 +169,7 @@
   z-index: 1000;
   background: rgba(0, 0, 0, 0.28);
   opacity: 0;
+  pointer-events: none; /* taps go to the dismiss area in the scroll host above */
   animation: scrimIn 0.28s ease forwards;
 }
 @keyframes scrimIn {
@@ -175,23 +177,47 @@
     opacity: 1;
   }
 }
-.sheet {
+
+/* Scroll host: dismiss the sheet by scrolling up/down, mirroring the Settings
+   sheet. Two snap stops — the transparent dismiss area (top) and the sheet
+   (bottom). The entrance + tap/close are tweened in JS (see ColorPicker.tsx). */
+.sheetScroll {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 1001;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.sheetScroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Transparent tappable area above the sheet; its height is the scroll length. */
+.sheetDismissArea {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.sheet {
+  position: relative;
   background: var(--device-bg);
   border-radius: 22px 22px 0 0;
   padding: 8px 20px calc(24px + env(safe-area-inset-bottom));
   box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.3);
-  transform: translateY(100%);
-  animation: sheetUp 0.32s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-}
-@keyframes sheetUp {
-  to {
-    transform: translateY(0);
-  }
+  scroll-snap-align: end;
+  scroll-snap-stop: always;
 }
 .sheetHead {
   display: flex;
@@ -200,24 +226,27 @@
   height: 44px;
 }
 .sheetTitle {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
+/* Matches the Settings sheet's close button. */
 .sheetClose {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: -4px;
   border: 0;
-  border-radius: 50%;
-  background: var(--control-bg);
+  border-radius: 999px;
+  background: transparent;
   color: var(--text-soft);
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 .sheetClose:hover {
-  background: var(--seg-hover-bg);
+  background: var(--control-bg);
 }
 .sheetBody {
   padding-top: 8px;

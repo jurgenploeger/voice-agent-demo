@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { SlidersHorizontal, Sun, Moon, Microphone, ArrowUp } from "@phosphor-icons/react";
+import { SlidersHorizontal, Sun, Moon, Microphone, ArrowUp, Plus } from "@phosphor-icons/react";
 import styles from "./Phone.module.css";
 import type { Viz } from "../page";
 import Orb from "./visualizations/Orb";
@@ -18,6 +18,7 @@ export default function Phone({
   colors,
   state,
   dark,
+  vizScale = 1,
   showMenu,
   onMenu,
   onToggleTheme,
@@ -27,6 +28,7 @@ export default function Phone({
   colors: Color[];
   state: AgentState;
   dark: boolean;
+  vizScale?: number; // size multiplier for orb/glow/ring/wave (not aura)
   showMenu: boolean; // mobile: header carries the hamburger + theme toggle
   onMenu: () => void;
   onToggleTheme: () => void;
@@ -199,7 +201,11 @@ export default function Phone({
 
         {/* Center visualization (crossfading WebGL shaders) */}
         <div className={styles.viz}>
-          <div ref={bouncerRef} className={styles.bouncer}>
+          <div
+            ref={bouncerRef}
+            className={styles.bouncer}
+            style={{ ["--viz-scale" as string]: vizScale } as React.CSSProperties}
+          >
             <div className={`${styles.vizLayer} ${viz === "orb" ? styles.vizOn : ""}`}>
               <Orb colors={colors} running={viz === "orb"} state={state} dark={dark} />
             </div>
@@ -218,6 +224,10 @@ export default function Phone({
         {/* Bottom input bar — the audio button lives inside the composer and
             swaps to a send button once there's text. */}
         <div className={styles.dock}>
+          {/* Decorative add button (e.g. attachments) — inert for now. */}
+          <button className={styles.composerPlus} aria-label="Add" type="button">
+            <Plus size={20} weight="regular" />
+          </button>
           <div className={styles.field}>
             <input
               className={styles.input}

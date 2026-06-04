@@ -250,6 +250,45 @@
   color: var(--muted);
 }
 
+/* ---------- Range slider (Size) — monochrome chrome ---------- */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 22%, transparent);
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 2px solid var(--device-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 2px solid var(--device-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
 /* ---------- Colour swatches (full-colour picker trigger) ---------- */
 /* Up to three colours sit side-by-side; tapping one opens the colour picker
    (a popover on desktop, a stacked sheet on mobile). */
@@ -257,27 +296,33 @@
 .swatchRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  /* spacing via each item's trailing margin (not gap) so a collapsing swatch /
+     add chip can animate its width AND its gap away, and neighbours slide. */
 }
 
+/* Swatches, the add chip, and the Shuffle pill all share this height so they
+   read as one row of equally-sized controls (swatches/add are square). */
 .swatch {
   position: relative;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin-right: 8px;
   animation: swatchIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 .swatchExiting {
   animation: swatchOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
   pointer-events: none;
 }
+/* Enter/exit collapse the swatch's width + trailing gap (not just scale), so
+   adding/removing a colour slides the row smoothly instead of snapping. */
 @keyframes swatchIn {
-  from { opacity: 0; transform: scale(0.8); }
-  to   { opacity: 1; transform: scale(1); }
+  from { width: 0; margin-right: 0; opacity: 0; }
+  to   { width: 34px; margin-right: 8px; opacity: 1; }
 }
 @keyframes swatchOut {
-  from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(0.8); }
+  from { width: 34px; margin-right: 8px; opacity: 1; }
+  to   { width: 0; margin-right: 0; opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .swatch,
@@ -318,77 +363,57 @@
 }
 .swatchRemove:hover { transform: scale(1.12); }
 
-/* Add-colour chip; collapses away at the 3-colour max. */
+/* Add-colour chip; collapses its width + trailing gap away at the 3-colour max
+   (same easing as the swatches) so the row reflows smoothly. */
 .addSwatch {
-  flex: 0 0 44px;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  margin-right: 8px;
   display: grid;
   place-items: center;
-  height: 44px;
   border: 0;
   border-radius: 12px;
-  color: var(--muted);
+  color: var(--text-soft);
   background: var(--control-bg);
   box-shadow: inset 0 0 0 1px var(--control-edge);
   cursor: pointer;
   overflow: hidden;
   transition: background 0.2s ease, color 0.2s ease, transform 0.16s ease,
-    flex-basis 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-    margin 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease;
+    width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    margin-right 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s ease;
 }
 .addSwatch:hover { background: var(--seg-hover-bg); color: var(--text-soft); }
 .addSwatch:active { transform: scale(0.95); }
 .addSwatchHidden {
-  flex-basis: 0;
-  margin-left: -8px;
+  width: 0;
+  margin-right: 0;
   opacity: 0;
   box-shadow: none;
   pointer-events: none;
 }
 
-.colorActions {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  margin-top: 2px;
-}
-
+/* Shuffle pill — sits inline after the colour swatches, same height as them. */
 .addColor {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-right: 8px; /* spacing between the two actions; collapses when hidden */
-  padding: 8px 14px;
-  max-width: 200px;
+  height: 34px;
+  padding: 0 14px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
   color: var(--text-soft);
   background: var(--control-bg);
   box-shadow: inset 0 0 0 1px var(--control-edge);
-  transition: background 0.2s ease, transform 0.16s ease,
-    max-width 0.38s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 0.38s cubic-bezier(0.4, 0, 0.2, 1),
-    margin 0.38s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.34s ease;
+  transition: background 0.2s ease, transform 0.16s ease;
 }
 .addColor:hover {
   background: var(--seg-hover-bg);
 }
 .addColor:active {
   transform: scale(0.97);
-}
-
-/* Hidden action: collapses horizontally + fades so it animates in/out instead
-   of popping (same easing as the colour rows). */
-.actionHidden {
-  max-width: 0;
-  margin: 0;
-  padding-left: 0;
-  padding-right: 0;
-  opacity: 0;
-  box-shadow: none;
-  pointer-events: none;
 }
 
 

@@ -101,19 +101,12 @@ export function vividColor(hueDeg: number): Color {
 // Deep electric blue-violet so the first render looks intentional (Siri-like).
 export const DEFAULT_COLOR: Color = vividColor(252);
 
-// A few ready-to-use swatches in the picker: a vivid spread plus neutral
-// black/white so brand palettes (including dark tones) are one tap away.
+// Picker swatches: ten vivid hues spaced evenly around the wheel (36° steps) so
+// every preset is clearly distinct, plus black + white as the only neutrals.
+// (The old list had two purples and a navy that read like grey.)
+const PRESET_HUES = [0, 36, 72, 108, 144, 180, 216, 252, 288, 324];
 export const PRESET_HEXES: string[] = [
-  "#4B1FFF", // electric violet
-  "#1F6BFF", // blue
-  "#00C2FF", // cyan
-  "#16C784", // green
-  "#FDE024", // yellow
-  "#FF6B00", // orange
-  "#FF1F87", // pink
-  "#E11D48", // red
-  "#7C3AED", // purple
-  "#1A2238", // deep navy (muted/dark brand tone)
+  ...PRESET_HUES.map((h) => hsvToHex(vividColor(h))),
   "#111111", // near-black
   "#FFFFFF", // white
 ];
