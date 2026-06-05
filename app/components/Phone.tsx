@@ -197,8 +197,10 @@ export default function Phone({
     ctx?: AudioContext;
     analyser?: AnalyserNode;
     mute?: GainNode; // pulls the graph to the destination (silently) so the analyser runs
-    data?: Uint8Array;
-    freq?: Uint8Array;
+    // Explicit <ArrayBuffer> (not the default <ArrayBufferLike>) so these satisfy
+    // the analyser's getByte*Data signatures under TS 5.7+'s generic typed arrays.
+    data?: Uint8Array<ArrayBuffer>;
+    freq?: Uint8Array<ArrayBuffer>;
     simulated?: boolean; // fallback when no real mic (e.g. insecure origin)
     raf?: number;
   }>({});
