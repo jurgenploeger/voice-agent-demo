@@ -320,17 +320,21 @@ void main() {
   float speak = smoothstep(0.6, 1.0, uReact);
   float speech = uReact * mix(0.55 + 0.25 * sin(t * 1.6), speechEnv(t), speak);
   speech = mix(speech, uMic, uVoice);   // voice mode: react to the real mic level
+  // A calmer, low-passed copy of the speech signal for the SIZE pulse: blend in the
+  // slow phrase rhythm so the glow breathes with speech rather than juddering on every
+  // syllable. Keeps reactivity but takes the "hectic" edge off the dominant motion.
+  float speechSmooth = mix(speech, uReact * (0.55 + 0.25 * sin(t * 1.6)), 0.5 * speak);
   // Per-state motion energy so each state reads as a DISTINCT animation: idle
   // barely moves, listening lifts, thinking churns (uFlow), connecting pulses
   // (uLoad), speaking surges (speech). Drives the warp / swirl / orbit below.
   // Interior turbulence energy. Speech contributes only a LITTLE here (was 0.50) so
   // the interior stays calm + fluid while talking — the speaking motion is carried
   // by the smooth size pulse below, not by jittery interior churn (which glitched).
-  float energy = 0.06 + 0.30 * uReact + 0.18 * uFlow + 0.28 * uLoad + 0.15 * speech;
-  // Size: the glow scales in/out with the speaking rate (speech) — the primary
+  float energy = 0.06 + 0.30 * uReact + 0.18 * uFlow + 0.28 * uLoad + 0.10 * speech;
+  // Size: the glow scales in/out with the speaking rate (speechSmooth) — the primary
   // speaking motion — plus a slow connecting breath and a gentle listening wobble.
   // Idle/thinking hold a steady size (their motion is the interior swirl).
-  float R = 0.24 * (1.0 + speech * 0.30 + uLoad * 0.05 * sin(t * 2.0) + uReact * 0.04 * sin(t * 1.6));
+  float R = 0.24 * (1.0 + speechSmooth * 0.20 + uLoad * 0.05 * sin(t * 2.0) + uReact * 0.04 * sin(t * 1.6));
   float p = r / R;                           // normalized radius (0 centre, 1 rim)
 
   // Soft globe body: solid through the core, then a soft round falloff to 0.
@@ -361,7 +365,7 @@ void main() {
   vec2 gtoP = q - (uHoverAmt > 0.001 ? uHover : uTap);
   sp += (gtoP / (length(gtoP) + 1e-4)) * poke(q) * 0.5;
   float bt = t;
-  float orbS = 1.0 + 0.5 * uFlow + 0.2 * speech;   // masses circle a touch faster when active
+  float orbS = 1.0 + 0.5 * uFlow + 0.1 * speech;   // masses circle a touch faster when active
   float a0 =  bt * 0.42 * orbS + 2.0 * snoise(vec3(bt * 0.12, 0.0, 0.0));
   float a1 = -bt * 0.34 * orbS + 2.0 * snoise(vec3(bt * 0.10, 5.0, 0.0)) + 2.0;
   vec2 c0 = 0.40 * vec2(cos(a0), sin(a0));
