@@ -9,7 +9,7 @@ desktop window), with six WebGL visualizer styles built on
 - **Orb**: a flat disc filled with a flowing, domain-warped liquid colour
   gradient (Siri-style) with a soft sheen and a tight halo. A single-colour orb
   opens its interior up so the background gently breathes through.
-- **Sphere**: a glossy liquid sphere — a fixed circle bump-mapped with flowing
+- **Sphere**: a glossy liquid sphere, a fixed circle bump-mapped with flowing
   colour, whose ripples bulge out over the surface for a 3D feel when speaking.
 - **Ring**: a circle whose rim breaks into a few bespoke travelling peaks that
   grow when the agent speaks.
