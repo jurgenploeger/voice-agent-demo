@@ -42,6 +42,9 @@ uniform vec2  uHover;      // live cursor position while hovering, in coords() s
 uniform float uHoverAmt;   // hover presence 0..1 (smoothed; 0 when not hovering)
 uniform float uMic;        // live microphone level 0..1 (voice/recording mode)
 uniform float uVoice;      // voice-mode presence 0..1 (smoothed; 0 when not recording)
+uniform vec2  uDrag;       // drag/swipe spin offset (.x = horizontal, .y = vertical),
+                           // integrated from the pointer with momentum; the Sphere
+                           // adds it to its globe spin so a swipe spins it that way
 varying vec2  vUv;
 
 #define PI 3.141592653589793
@@ -330,7 +333,7 @@ void main() {
   // Interior turbulence energy. Speech contributes only a LITTLE here (was 0.50) so
   // the interior stays calm + fluid while talking — the speaking motion is carried
   // by the smooth size pulse below, not by jittery interior churn (which glitched).
-  float energy = 0.06 + 0.30 * uReact + 0.18 * uFlow + 0.28 * uLoad + 0.10 * speech;
+  float energy = 0.06 + 0.30 * uReact + 0.18 * uFlow + 0.28 * uLoad + 0.06 * speechSmooth;
   // Size: the glow scales in/out with the speaking rate (speechSmooth) — the primary
   // speaking motion — plus a slow connecting breath and a gentle listening wobble.
   // Idle/thinking hold a steady size (their motion is the interior swirl).
@@ -353,7 +356,7 @@ void main() {
   // where the angle is undefined and the displacement would otherwise spin and
   // glitch (most visible when the amplitude rises on speech pulses).
   float ang = atan(P.y, P.x);
-  float wave = (0.03 + 0.05 * energy) * sin(pl * 5.0 - t * 3.0) * smoothstep(0.0, 0.4, pl);
+  float wave = (0.018 + 0.025 * energy) * sin(pl * 5.0 - t * 2.0) * smoothstep(0.0, 0.4, pl);
   sp += wave * vec2(-sin(ang), cos(ang));
   // Thinking: a SLOW, RIGID rotation of the interior — the colour masses gently
   // orbit as one (a calm "processing" loop), not a radius-dependent shear that
@@ -365,7 +368,7 @@ void main() {
   vec2 gtoP = q - (uHoverAmt > 0.001 ? uHover : uTap);
   sp += (gtoP / (length(gtoP) + 1e-4)) * poke(q) * 0.5;
   float bt = t;
-  float orbS = 1.0 + 0.5 * uFlow + 0.1 * speech;   // masses circle a touch faster when active
+  float orbS = 1.0 + 0.5 * uFlow + 0.1 * speechSmooth;   // masses circle a touch faster when active
   float a0 =  bt * 0.42 * orbS + 2.0 * snoise(vec3(bt * 0.12, 0.0, 0.0));
   float a1 = -bt * 0.34 * orbS + 2.0 * snoise(vec3(bt * 0.10, 5.0, 0.0)) + 2.0;
   vec2 c0 = 0.40 * vec2(cos(a0), sin(a0));
@@ -442,7 +445,9 @@ void main() {
 
   // Globe spin (left -> right), shared by the silhouette ripple AND the surface
   // folds below so the edge bulges track the waves rolling across the surface.
-  float rot = t * 0.5;
+  // uDrag.x adds the user's swipe spin (with momentum) on top of the base drift,
+  // so dragging across the sphere spins it that way and it keeps gliding after.
+  float rot = t * 0.5 + uDrag.x;
 
   // The body stays essentially a CIRCLE; the only silhouette movement comes from
   // the same vertical meridian folds that ripple the surface, sampled at the
@@ -474,7 +479,7 @@ void main() {
   // reads like a globe spinning on its vertical axis: the fold front is a
   // vertical line sweeping across. uTime carries the per-state speed.
   float nt = t * 0.22;
-  vec2 wc = p * 1.4 - vec2(rot * 0.30, 0.0);           // noise drifts with the spin
+  vec2 wc = p * 1.4 - vec2(rot * 0.30, uDrag.y * 0.30); // noise drifts with the spin (+ vertical swipe)
   float w0n = snoise(vec3(wc, nt));
   float w1n = snoise(vec3(wc + 5.0, nt));
   float sx = p.x + 0.10 * w0n;                         // mostly-x surface coord (slight warp)
@@ -525,7 +530,7 @@ void main() {
   float drift = rot * 0.5;                              // sweeps with the globe spin
   // LOW-frequency field + VERY WIDE smoothstep = big, soft gradient blurs that
   // melt into each other (not small spotted blobs).
-  vec2 fp = vec2(sx * 0.85 - drift, p.y * 0.8);         // surface field coord (large masses)
+  vec2 fp = vec2(sx * 0.85 - drift, p.y * 0.8 - uDrag.y * 0.5); // surface field coord (large masses; vertical swipe rolls it)
   float bb0 = smoothstep(-0.65, 0.75, snoise(vec3(fp, rot * 0.10 + 2.0)));
   float bb1 = smoothstep(-0.45, 0.85, snoise(vec3(fp * 0.8 + 8.0, rot * 0.08 - 1.0)));
   vec3 hue = k0;

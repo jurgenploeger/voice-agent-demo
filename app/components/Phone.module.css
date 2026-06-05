@@ -167,12 +167,24 @@
   position: relative;
   z-index: 4; /* above the frosted chat band + orb so the title/buttons stay crisp */
   flex: none;
-  display: flex;
+  /* One button on the left and two on the right (theme + new-chat) would push a
+     space-between title off-centre. A 1fr / auto / 1fr grid gives equal side
+     columns, so the centre column — the title — stays optically centred on the
+     page regardless of how many buttons sit on each side. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   padding: 18px 18px 12px;
   /* Fully transparent — no background, no divider. */
   background: transparent;
+}
+/* Pin the side groups to the outer edges within their (equal) columns. */
+.header > .iconBtn,
+.header > .iconSpacer {
+  justify-self: start;
+}
+.headerRight {
+  justify-self: end;
 }
 
 .title {
@@ -318,9 +330,9 @@
 
 /* The orb morphs from big-and-centred to a compact presence pinned near the top
    (best practice: the assistant shrinks to an avatar once the chat begins).
-   translateY moves the centre to ~118px from the top regardless of screen height. */
+   translateY moves the centre to ~138px from the top regardless of screen height. */
 .bouncerDocked {
-  transform: translateY(calc(118px - 50cqh)) scale(0.34);
+  transform: translateY(calc(138px - 50cqh)) scale(0.4);
 }
 
 .messages {

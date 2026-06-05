@@ -181,6 +181,19 @@ export default function Phone({
     y: 0,
     active: false,
   });
+  // Drag/swipe to spin the Sphere: `dx`/`dy` accumulate pointer movement (in the
+  // shader's coords() space) between frames; the shader consumes them and spins
+  // the globe that way, gliding on with momentum after release. Mouse and touch
+  // both flow through pointer events. The other refs track the in-progress drag.
+  const dragRef = useRef<{ dx: number; dy: number; active: boolean }>({
+    dx: 0,
+    dy: 0,
+    active: false,
+  });
+  const dragLast = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Set true once a drag moves beyond a small threshold, so the click that fires
+  // after a drag-release doesn't also trigger a tap ripple.
+  const draggedRef = useRef(false);
 
   // --- Voice / microphone mode ---------------------------------------------
   // Tapping the mic puts the composer into a live recording mode: we capture the
@@ -238,9 +251,21 @@ export default function Phone({
     g2.clearRect(0, 0, cssW, cssH);
     g2.fillStyle = getComputedStyle(cv).color || "#888";
 
-    const bars = Math.max(20, Math.min(46, Math.round(cssW / 5)));
-    if (barsRef.current.length !== bars)
-      barsRef.current = new Array(bars).fill(0.03);
+    // Fixed bar pitch so the bars keep the SAME width at any composer width: a
+    // wider composer (e.g. the desktop window) simply fits MORE bars rather than
+    // stretching each one. (Previously a capped bar count was stretched to fill,
+    // so toggling the device width changed the bar width.)
+    const PITCH = 6; // px per bar slot (bar + gap)
+    const bars = Math.max(12, Math.floor(cssW / PITCH));
+    if (barsRef.current.length !== bars) {
+      // Resize the rolling history in place, preserving the NEWEST samples (kept
+      // on the right) so toggling the width doesn't blank the trace.
+      const old = barsRef.current;
+      barsRef.current =
+        bars > old.length
+          ? new Array(bars - old.length).fill(0.03).concat(old)
+          : old.slice(old.length - bars);
+    }
 
     // Capture a fresh amplitude sample at ~22 fps so the scroll reads at a
     // natural, voice-memo pace (newest pushed on the right, oldest dropped).
@@ -254,14 +279,17 @@ export default function Phone({
       barsRef.current.shift();
     }
 
-    const pitch = cssW / bars;
+    const pitch = PITCH;
     const bw = Math.max(1.5, pitch * 0.6);
     const r = Math.min(bw / 2, 2.5);
     const mid = cssH / 2;
+    // Centre the fixed-pitch bar field; bars * pitch rarely equals the exact
+    // width, so split the small remainder evenly on both sides.
+    const inset = (cssW - bars * pitch) / 2;
     for (let i = 0; i < bars; i++) {
       const v = barsRef.current[i];
       const bh = Math.max(2, v * cssH * 0.9); // mirrored around the centre line
-      const x0 = i * pitch + (pitch - bw) / 2;
+      const x0 = inset + i * pitch + (pitch - bw) / 2;
       const y0 = mid - bh / 2;
       if (g2.roundRect) {
         g2.beginPath();
@@ -389,6 +417,11 @@ export default function Phone({
     const target = e.target as HTMLElement;
     if (target.closest("button") || target.closest("input")) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // A drag that spun the sphere shouldn't also fire a tap ripple on release.
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
 
     // Only react when the tap lands on the active visual, not the empty
     // background around it.
@@ -396,6 +429,47 @@ export default function Phone({
     if (!p || !p.hit) return;
     bounce(vizStackRef.current);
     setTap({ x: p.x, y: p.y, id: ++tapSeq.current });
+  };
+
+  // Drag/swipe to spin the Sphere. Pointer events cover both mouse drag-and-drop
+  // and touch swiping. We only engage over the sphere's hit region; movement is
+  // accumulated (in coords space) into dragRef for the shader to consume.
+  const onVizPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (viz !== "sphere") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const p = pointerInViz(e.clientX, e.clientY);
+    if (!p || !p.hit) return;
+    dragRef.current.active = true;
+    dragRef.current.dx = 0;
+    dragRef.current.dy = 0;
+    dragLast.current = { x: p.x, y: p.y };
+    draggedRef.current = false;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture is best-effort; the drag still tracks via move events */
+    }
+  };
+  const onVizPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    const p = pointerInViz(e.clientX, e.clientY);
+    if (!p) return;
+    const dx = p.x - dragLast.current.x;
+    const dy = p.y - dragLast.current.y;
+    dragLast.current = { x: p.x, y: p.y };
+    dragRef.current.dx += dx;
+    dragRef.current.dy += dy;
+    if (Math.hypot(dx, dy) > 0.004) draggedRef.current = true;
+  };
+  const endVizDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current.active) return;
+    dragRef.current.active = false; // keep last velocity → momentum glide
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId))
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* no-op */
+    }
   };
 
   // Hover: while the cursor is over the visual, feed its position to the active
@@ -424,6 +498,10 @@ export default function Phone({
         onClick={onScreenTap}
         onMouseMove={onScreenMove}
         onMouseLeave={onScreenLeave}
+        onPointerDown={onVizPointerDown}
+        onPointerMove={onVizPointerMove}
+        onPointerUp={endVizDrag}
+        onPointerCancel={endVizDrag}
       >
         {/* App header */}
         <header className={styles.header}>
@@ -477,7 +555,13 @@ export default function Phone({
           >
             {/* Only the visual stack springs on tap — the greeting (a sibling
                 below) stays still. */}
-            <div ref={vizStackRef} className={styles.vizStack}>
+            <div
+              ref={vizStackRef}
+              className={styles.vizStack}
+              // While the sphere is active, claim touch gestures over it so a
+              // swipe spins the globe instead of scrolling the page.
+              style={viz === "sphere" ? { touchAction: "none" } : undefined}
+            >
               <div className={`${styles.vizLayer} ${viz === "orb" ? styles.vizOn : ""}`}>
                 <Orb colors={colors} running={viz === "orb"} state={effectiveState} dark={dark} tap={tap} hover={hoverRef} mic={micRef} />
               </div>
@@ -485,7 +569,7 @@ export default function Phone({
                 <Glow colors={colors} running={viz === "glow"} state={effectiveState} dark={dark} tap={tap} hover={hoverRef} mic={micRef} />
               </div>
               <div className={`${styles.vizLayer} ${viz === "sphere" ? styles.vizOn : ""}`}>
-                <Sphere colors={colors} running={viz === "sphere"} state={effectiveState} dark={dark} tap={tap} hover={hoverRef} mic={micRef} />
+                <Sphere colors={colors} running={viz === "sphere"} state={effectiveState} dark={dark} tap={tap} hover={hoverRef} mic={micRef} drag={dragRef} />
               </div>
               <div className={`${styles.vizLayer} ${viz === "ring" ? styles.vizOn : ""}`}>
                 <Ring colors={colors} running={viz === "ring"} state={effectiveState} dark={dark} tap={tap} hover={hoverRef} mic={micRef} />

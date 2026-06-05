@@ -105,14 +105,14 @@
      was sized to a preset cell), and use a >=16px font so tapping the field
      doesn't trigger iOS's focus-zoom. */
   .hexPreview {
-    /* Stretch to the row height so the swatch is exactly as tall as the hex
-       field beside it, and keep it square. */
-    flex: 0 0 auto;
-    align-self: stretch;
-    width: auto;
-    min-width: 0;
-    height: auto;
-    aspect-ratio: 1;
+    /* A fixed square exactly as tall as the 32px hex field beside it. Explicit
+       width + height (the earlier stretch + aspect-ratio collapsed the empty span
+       to zero width, so the swatch vanished). */
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    align-self: auto;
+    aspect-ratio: auto;
   }
   .hexHash,
   .hexInput {

@@ -26,6 +26,11 @@ export type VisualizationProps = {
   // Live microphone level, as a ref (updated each frame while recording). Drives
   // uMic/uVoice so the visual reacts to real audio input in voice mode.
   mic?: { current: { level: number; active: boolean } } | null;
+  // Drag/swipe over the visual, as a ref. `dx`/`dy` accumulate pointer movement
+  // (in coords() space) between frames; the loop consumes them, spins the visual
+  // by that delta while `active`, and lets it glide on with momentum after release.
+  // Currently only the Sphere reads the resulting uDrag uniform.
+  drag?: { current: { dx: number; dy: number; active: boolean } } | null;
   className?: string; // forwarded to the wrapper, for sizing/positioning
   style?: CSSProperties; // forwarded to the wrapper (overrides the fill default)
   fallback?: ReactNode; // shown if WebGL is unavailable (defaults to a message)
@@ -64,6 +69,7 @@ export default function ShaderCanvas({
   tap,
   hover,
   mic,
+  drag,
   className,
   style,
   fallback,
@@ -85,6 +91,7 @@ export default function ShaderCanvas({
   const tapRef = useRef(tap);
   const hoverPropRef = useRef(hover);
   const micPropRef = useRef(mic);
+  const dragPropRef = useRef(drag);
   const controls = useRef<{ start: () => void; stop: () => void } | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -108,6 +115,9 @@ export default function ShaderCanvas({
   useEffect(() => {
     micPropRef.current = mic;
   }, [mic]);
+  useEffect(() => {
+    dragPropRef.current = drag;
+  }, [drag]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -161,6 +171,7 @@ export default function ShaderCanvas({
         uHoverAmt: { value: 0 },
         uMic: { value: 0 },
         uVoice: { value: 0 },
+        uDrag: { value: new Vec2(0, 0) },
         uResolution: { value: new Vec2(1, 1) },
         uLevel: { value: stateTarget.current.level },
         uBright: { value: stateTarget.current.bright },
@@ -237,6 +248,13 @@ export default function ShaderCanvas({
     // Mic level + voice-mode presence, both smoothed for a fluid reaction.
     let micLevel = 0;
     let voiceAmt = 0;
+    // Drag/swipe spin: a 2-axis offset (spinX/spinY) integrated from pointer
+    // movement. While dragging it tracks the pointer 1:1; on release the captured
+    // velocity (flingVelX/Y) carries it on and decays — a flick-to-spin feel.
+    let spinX = 0;
+    let spinY = 0;
+    let flingVelX = 0;
+    let flingVelY = 0;
 
     const frame = () => {
       const now = performance.now();
@@ -290,6 +308,32 @@ export default function ShaderCanvas({
       program.uniforms.uVoice.value = voiceAmt;
       program.uniforms.uMic.value = micLevel;
 
+      // Drag/swipe spin: consume the movement accumulated since last frame. While
+      // dragging, rotate by that delta directly (the surface tracks the pointer)
+      // and keep a smoothed velocity estimate; on release, integrate that velocity
+      // and decay it so the sphere glides on and eases to a stop (momentum).
+      const dg = dragPropRef.current?.current;
+      const ddx = dg ? dg.dx : 0;
+      const ddy = dg ? dg.dy : 0;
+      if (dg) {
+        dg.dx = 0;
+        dg.dy = 0;
+      }
+      const DRAG_MAP = 6.0; // coords-space delta -> spin angle
+      if (dg && dg.active) {
+        spinX += ddx * DRAG_MAP;
+        spinY += ddy * DRAG_MAP;
+        const invDt = 1 / Math.max(dt, 1e-3);
+        flingVelX += (ddx * DRAG_MAP * invDt - flingVelX) * 0.3;
+        flingVelY += (ddy * DRAG_MAP * invDt - flingVelY) * 0.3;
+      } else {
+        spinX += flingVelX * dt;
+        spinY += flingVelY * dt;
+        flingVelX *= 0.94; // inertia: ~per-frame friction
+        flingVelY *= 0.94;
+      }
+      program.uniforms.uDrag.value.set(spinX, spinY);
+
       // Lerp each colour toward its target; count eases (crossfade).
       const ct = colorTarget.current;
       lerpHSV(cur0, ct.cols[0]);
@@ -337,6 +381,19 @@ export default function ShaderCanvas({
         program.uniforms.uHoverAmt.value = 0;
         micLevel = 0;
         voiceAmt = 0;
+        // Reset drag spin so re-activating a viz doesn't inherit stale momentum.
+        spinX = 0;
+        spinY = 0;
+        flingVelX = 0;
+        flingVelY = 0;
+        program.uniforms.uDrag.value.set(0, 0);
+        // Drop any movement accumulated while this viz was inactive.
+        const dg = dragPropRef.current?.current;
+        if (dg) {
+          dg.dx = 0;
+          dg.dy = 0;
+          dg.active = false;
+        }
         last = performance.now();
         frame();
       },

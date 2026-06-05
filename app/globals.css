@@ -87,8 +87,19 @@ body {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
+/* Form controls reset font properties via the UA `font` shorthand, which also
+   clears font-feature-settings to `normal` and breaks inheritance from body.
+   Re-inherit so the Geist stylistic alternates apply to the composer input,
+   textareas, etc. — keeping the type identical everywhere on the page. */
+input,
+textarea,
+select,
 button {
   font-family: inherit;
+  font-feature-settings: inherit;
+}
+
+button {
   cursor: pointer;
   border: none;
   background: none;

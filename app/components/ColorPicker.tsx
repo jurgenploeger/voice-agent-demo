@@ -204,7 +204,7 @@ export default function ColorPickerOverlay({
   color,
   onChange,
   onClose,
-  onCloseStart,
+  onReceded,
   isMobile,
   anchorRect,
   label,
@@ -212,9 +212,11 @@ export default function ColorPickerOverlay({
   color: Color;
   onChange: (c: Color) => void;
   onClose: () => void;
-  // Fires the moment a close begins (before the glide-down completes) so the
-  // settings sheet behind can un-recede in sync rather than after the glide.
-  onCloseStart?: () => void;
+  // Drives the recede of the settings sheet behind: receded while the picker is
+  // open, un-receded as it closes. Called continuously during a swipe-dismiss so
+  // the sheet behind animates in sync with the gesture (matching the close
+  // button) rather than only after the picker is gone.
+  onReceded?: (receded: boolean) => void;
   isMobile: boolean;
   anchorRect: DOMRect | null;
   label: string;
@@ -295,19 +297,24 @@ export default function ColorPickerOverlay({
   }, [isMobile, mounted]);
   const onSheetScroll = () => {
     const el = scrollRef.current;
-    if (!el || closingRef.current || tweenRef.current != null) return;
+    if (!el || closingRef.current) return;
     const range = el.scrollHeight - el.clientHeight;
     const p = range > 0 ? el.scrollTop / range : 1; // 1 = open, 0 = dismissed
+    // Mirror the close button: un-recede the sheet behind as soon as a dismissing
+    // drag is underway (and re-recede if it's dragged back toward open) so it
+    // animates in sync with the swipe, not only after the sheet is gone. Skipped
+    // mid-tween so our own entrance/close glides don't fight it.
+    if (tweenRef.current == null) onReceded?.(p > 0.85);
+    if (tweenRef.current != null) return;
     if (p < 0.15) {
       closingRef.current = true;
-      onCloseStart?.();
-      onClose();
+      tweenTo(0, onClose); // glide the last bit down, then unmount (like the button)
     }
   };
   const closeWithScroll = () => {
     if (closingRef.current) return;
     closingRef.current = true;
-    onCloseStart?.(); // un-recede the sheet behind now, while this one glides down
+    onReceded?.(false); // un-recede the sheet behind now, while this one glides down
     tweenTo(0, onClose); // glide the sheet down, then unmount
   };
 
