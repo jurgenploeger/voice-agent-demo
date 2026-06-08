@@ -8,14 +8,22 @@ import { AgentState } from "./visualizations/states";
 import { STATE_ORDER, STATE_TAB_LABEL } from "./stateLabels";
 import { type Color, hsvToHex } from "./color";
 import ColorPickerOverlay from "./ColorPicker";
+import Orb from "./visualizations/Orb";
+import Glow from "./visualizations/Glow";
+import Sphere from "./visualizations/Sphere";
+import Ring from "./visualizations/Ring";
+import Aura from "./visualizations/Aura";
+import Wave from "./visualizations/Wave";
+import type { ComponentType } from "react";
+import type { VisualizationProps } from "./visualizations/ShaderCanvas";
 
-const TABS: { id: Viz; label: string }[] = [
-  { id: "glow", label: "Glow" },
-  { id: "orb", label: "Orb" },
-  { id: "sphere", label: "Sphere" },
-  { id: "ring", label: "Ring" },
-  { id: "aura", label: "Aura" },
-  { id: "wave", label: "Wave" },
+const TABS: { id: Viz; label: string; Viz: ComponentType<VisualizationProps> }[] = [
+  { id: "glow", label: "Glow", Viz: Glow },
+  { id: "orb", label: "Orb", Viz: Orb },
+  { id: "sphere", label: "Sphere", Viz: Sphere },
+  { id: "ring", label: "Ring", Viz: Ring },
+  { id: "aura", label: "Aura", Viz: Aura },
+  { id: "wave", label: "Wave", Viz: Wave },
 ];
 
 type Props = {
@@ -32,6 +40,7 @@ type Props = {
   size: number; // visualization size multiplier
   setSize: (s: number) => void;
   isMobile: boolean; // picker shows as a stacked sheet on mobile, popover on desktop
+  dark: boolean; // theme — passed to the live Style thumbnail previews
   onPickerOpenChange?: (open: boolean) => void; // lets the page recede the sheet behind
 };
 
@@ -57,6 +66,7 @@ export default function Controls({
   size,
   setSize,
   isMobile,
+  dark,
   onPickerOpenChange,
 }: Props) {
   // Which swatch's picker is open (and where its trigger sits, for the popover).
@@ -89,38 +99,40 @@ export default function Controls({
 
   return (
     <>
-      {/* Style */}
+      {/* Style — live thumbnail previews of each visualization. They track the
+          picked colours (state/size are ignored here, fixed to a lively frame). */}
       <div className={styles.control}>
         <span className={styles.controlLabel}>Style</span>
-        <div className={styles.segFull} role="tablist" aria-label="Visualization style">
-          <span
-            className={styles.segThumb}
-            aria-hidden
-            style={{
-              width: `calc((100% - 8px - ${TABS.length - 1} * 2px) / ${TABS.length})`,
-              transform: `translateX(calc(${TABS.findIndex((t) => t.id === viz)} * (100% + 2px)))`,
-            }}
-          />
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              role="tab"
-              aria-selected={viz === tab.id}
-              className={`${styles.segFullItem} ${viz === tab.id ? styles.segFullItemActive : ""}`}
-              onClick={() => setViz(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className={styles.styleGrid} role="tablist" aria-label="Visualization style">
+          {TABS.map((tab) => {
+            const active = viz === tab.id;
+            const Viz = tab.Viz;
+            return (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={active}
+                aria-label={tab.label}
+                title={tab.label}
+                className={`${styles.styleThumb} ${active ? styles.styleThumbActive : ""}`}
+                onClick={() => setViz(tab.id)}
+              >
+                <span className={styles.styleThumbViz} aria-hidden>
+                  <Viz colors={colors} running state="speaking" dark={dark} />
+                </span>
+                <span className={styles.styleThumbLabel}>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* State (demo control; the real agent would set this programmatically) */}
       <div className={styles.control}>
         <span className={styles.controlLabel}>State</span>
-        <div className={styles.segFull} role="radiogroup" aria-label="Agent state">
+        <div className={styles.stateSeg} role="radiogroup" aria-label="Agent state">
           <span
-            className={styles.segThumb}
+            className={styles.stateSegThumb}
             aria-hidden
             style={{
               width: `calc((100% - 8px - ${STATE_ORDER.length - 1} * 2px) / ${STATE_ORDER.length})`,
@@ -132,7 +144,7 @@ export default function Controls({
               key={s}
               role="radio"
               aria-checked={state === s}
-              className={`${styles.segFullItem} ${state === s ? styles.segFullItemActive : ""}`}
+              className={`${styles.stateSegItem} ${state === s ? styles.stateSegItemActive : ""}`}
               onClick={() => setState(s)}
             >
               {STATE_TAB_LABEL[s]}

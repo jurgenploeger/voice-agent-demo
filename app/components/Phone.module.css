@@ -9,9 +9,14 @@
   border-radius: 52px;
   background: var(--device-bg);
   padding: 6px;
-  /* Drop shadow removed; a hairline keeps the frame defined against the page. */
+  /* A hairline keeps the frame defined against the page, plus a very subtle
+     stacked drop shadow (Linear-style: several low-opacity layers ramping in
+     blur + offset) so the screen lifts gently off the background. */
   outline: 1px solid var(--edge);
   outline-offset: -1px;
+  box-shadow: 0 1px 2px rgba(15, 17, 26, 0.04),
+    0 4px 8px rgba(15, 17, 26, 0.04), 0 8px 16px rgba(15, 17, 26, 0.05),
+    0 16px 32px rgba(15, 17, 26, 0.06), 0 32px 64px rgba(15, 17, 26, 0.07);
   /* Smoothly morph between the mobile (portrait) and desktop (landscape) frames. */
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
     height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
@@ -40,8 +45,10 @@
    reads as the same white band/stroke around the screen; outer radius stays
    concentric with the 16px screen (16 + 6px bezel = 22px). */
 .desktop {
-  width: min(1040px, 92vw);
-  height: calc(min(1040px, 92vw) * 2 / 3);
+  /* --frame-w is supplied by the layout (the right-area sizes it to the space
+     beside the panel); falls back to the viewport when used outside that. */
+  width: var(--frame-w, min(1040px, 92vw));
+  height: calc(var(--frame-w, min(1040px, 92vw)) * 2 / 3);
   border-radius: 22px;
 }
 .screen.screenDesktop {
@@ -120,6 +127,7 @@
     border-radius: 0;
     padding: 0;
     outline: none;
+    box-shadow: none;
   }
   .screen {
     border-radius: 0;

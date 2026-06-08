@@ -17,20 +17,155 @@
   }
 }
 
-/* Desktop: controls below the phone. */
-.controls {
+/* ---------- Desktop: left side panel + centred right area ---------- */
+
+/* White panel pinned to the left with a 12px margin on three sides, a soft 1px
+   border, and an 8px radius. Brand sits at the top, the settings scroll in the
+   middle, the collapse button anchors the bottom-left. */
+.sidePanel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  z-index: 40;
+  width: 400px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 18px;
-  width: min(390px, 90vw);
+  padding: 24px;
+  background: var(--device-bg);
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  transition: transform 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.3s ease;
+}
+.sidePanelCollapsed {
+  transform: translateX(calc(-100% - 16px));
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidePanel {
+    transition: opacity 0.2s ease;
+  }
+}
+
+.panelBrand {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  margin-bottom: 28px;
+  color: var(--text); /* the wordmark uses currentColor; the mark stays blue */
+}
+
+/* The settings stack; scrolls within the panel if it ever outgrows it. */
+.panelScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  /* Bleed the scroll box out into the panel's padding (then pad back) so the
+     selected thumbnail's outset ring isn't clipped by the scroll container —
+     overflow clips at the padding box, which now sits 8px beyond the content. */
+  margin: 0 -8px;
+  padding: 0 8px;
+  /* Hide the scrollbar but stay scrollable, matching the app's clean surfaces. */
+  scrollbar-width: none;
+}
+.panelScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.panelCollapse {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-top: 18px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--text-soft);
+  background: transparent;
+  transition: background 0.2s ease, transform 0.16s ease;
+}
+.panelCollapse:hover {
+  background: var(--control-bg);
+}
+.panelCollapse:active {
+  transform: scale(0.94);
+}
+
+/* Expand affordance once the panel is collapsed — sits in the page's
+   bottom-left corner. Hidden (and non-interactive) while the panel is open. */
+.panelExpand {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--text-soft);
+  background: var(--device-bg);
+  border: 1px solid var(--edge);
+  box-shadow: var(--composer-shadow);
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.24s ease 0.08s, transform 0.24s cubic-bezier(0.32, 0.72, 0, 1) 0.08s,
+    background 0.2s ease;
+}
+.panelExpandShown {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+.panelExpand:hover {
+  transform: translateY(-1px);
+  background: var(--control-bg);
+}
+
+/* The empty space to the right of the panel; the app screen (with the device
+   toggle above it) sits dead-centre here. Collapsing the panel widens it to the
+   full viewport. */
+.rightArea {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 424px; /* 12 (margin) + 400 (panel) + 12 (gap) */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 24px;
+  /* Cap the desktop app window to the space beside the panel (100% = this
+     area's width) so it never overflows into / past the panel. Read by
+     Phone's .desktop variant via var(--frame-w). */
+  --frame-w: min(1040px, calc(100% - 48px));
+  transition: left 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.rightAreaWide {
+  left: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rightArea {
+    transition: none;
+  }
 }
 
 /* ---------- Device toggle (desktop, above the demo) ---------- */
 
-/* Track matches the Style/State segmented controls (.segFull). The active chip
-   is a raised white pill with a black icon, on a 12px (not fully round) radius. */
+/* Shares its look with the State selector (.stateSeg): the active chip is a
+   raised white pill with a black icon, on a 12px (not fully round) radius. */
 .deviceToggle {
+  position: relative;
   display: inline-flex;
   gap: 2px;
   padding: 4px;
@@ -39,7 +174,28 @@
   box-shadow: inset 0 0 0 1px var(--control-edge);
   backdrop-filter: blur(6px);
 }
+/* Sliding white pill — the same animation as the State selector. translateX
+   (= active index * (34px slot + 2px gap)) is set inline. */
+.deviceToggleThumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .deviceToggleThumb {
+    transition: none;
+  }
+}
 .deviceToggleItem {
+  position: relative;
+  z-index: 1;
   display: grid;
   place-items: center;
   width: 34px;
@@ -47,20 +203,16 @@
   border-radius: 8px;
   color: var(--muted);
   background: transparent;
-  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease,
-    transform 0.16s ease;
+  transition: color 0.2s ease, transform 0.16s ease;
 }
 .deviceToggleItem:not(.deviceToggleItemActive):hover {
   color: var(--seg-hover-fg);
-  background: var(--seg-hover-bg);
 }
 .deviceToggleItem:active {
   transform: scale(0.94);
 }
 .deviceToggleItemActive {
   color: #161618;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 /* The desktop-only chrome is JS-gated, but the server-rendered HTML briefly
@@ -74,19 +226,6 @@
 }
 
 /* ---------- Page theme toggle (desktop, top-right) ---------- */
-
-/* Stream logo, top-left (desktop only). Sits in a 40px-tall band so it lines up
-   vertically with the round theme toggle on the right. */
-.brand {
-  position: fixed;
-  top: 20px;
-  left: 24px;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  height: 40px;
-  color: var(--text); /* the wordmark uses currentColor; the mark stays blue */
-}
 
 .themeToggle {
   position: fixed;
@@ -423,7 +562,7 @@
   height: 34px;
   padding: 0 14px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   white-space: nowrap;
   color: var(--text-soft);
@@ -441,57 +580,121 @@
 }
 
 
-/* ---------- Segmented control (shared by Style + State) ---------- */
-/* Full-width control with equal segments, used for both the 3-item Style
-   toggle and the 5-item State selector so they're the same component. */
+/* ---------- Style thumbnails ---------- */
+/* Each style is a live mini visualization that tracks the picked colours. The
+   row is sized so five thumbnails fit per line (the sixth wraps); state and size
+   are not reflected here — the previews run a fixed, lively frame. */
+.styleGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.styleThumb {
+  flex: 0 0 calc((100% - 3 * 8px) / 4); /* four per row */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.styleThumbViz {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--screen-bg);
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+  transition: box-shadow 0.18s ease, transform 0.14s ease;
+}
+@media (hover: hover) {
+  .styleThumb:hover .styleThumbViz {
+    transform: translateY(-1px);
+  }
+}
+.styleThumb:active .styleThumbViz {
+  transform: scale(0.96);
+}
+.styleThumbActive .styleThumbViz {
+  /* Inset ring so the selected thumbnail keeps the exact same footprint as the
+     others (an outset ring would make it read as larger). */
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.styleThumbLabel {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+.styleThumbActive .styleThumbLabel {
+  color: var(--text);
+}
 
-.segFull {
+/* ---------- State selector ---------- */
+/* Full-width segmented control that matches the mobile/desktop device toggle:
+   a 12px-radius track whose active item is a raised white pill that SLIDES
+   between positions when the selection changes. */
+
+.stateSeg {
   position: relative;
   display: flex;
-  gap: 2px; /* breathing room so hover backgrounds don't sit flush */
+  gap: 2px;
   width: 100%;
   padding: 4px;
-  border-radius: 999px;
+  border-radius: 12px;
   background: var(--control-bg);
   box-shadow: inset 0 0 0 1px var(--control-edge);
   backdrop-filter: blur(6px);
 }
 
-/* Sliding active background — its width (= one slot) and translateX (= active
-   index) are set inline; equal slots (no gap) keep it aligned for 3 or 5. */
-.segThumb {
+/* Sliding white pill — width (= one slot) and translateX (= active index) are
+   set inline; equal slots keep it aligned. */
+.stateSegThumb {
   position: absolute;
   top: 4px;
   bottom: 4px;
   left: 4px;
-  border-radius: 999px;
-  background: var(--accent);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
   transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stateSegThumb {
+    transition: none;
+  }
 }
 
-.segFullItem {
+.stateSegItem {
   position: relative;
   z-index: 1;
   flex: 1 1 0;
   min-width: 0;
-  padding: 8px 1px;
-  border-radius: 999px;
-  font-size: 10.5px;
+  padding: 8px 2px;
+  border-radius: 8px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: capitalize;
   text-align: center;
   white-space: nowrap;
-  background: transparent;
   color: var(--muted);
+  background: transparent;
   transition: color 0.25s ease;
 }
 @media (hover: hover) {
-  .segFullItem:not(.segFullItemActive):hover {
+  .stateSegItem:not(.stateSegItemActive):hover {
     color: var(--seg-hover-fg);
-    background: var(--seg-hover-bg);
   }
 }
-.segFullItemActive {
-  color: var(--accent-fg);
+.stateSegItemActive {
+  color: #161618;
 }

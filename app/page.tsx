@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sun, Moon, X, DeviceMobile, Monitor } from "@phosphor-icons/react";
+import { Sun, Moon, X, DeviceMobile, Monitor, SidebarSimple } from "@phosphor-icons/react";
 import styles from "./page.module.css";
 import Phone from "./components/Phone";
 import Controls from "./components/Controls";
@@ -38,6 +38,9 @@ export default function Page() {
   // Visualization size multiplier (orb / glow / ring / wave). Bounded so it
   // can't shrink to nothing or overflow the screen. See SIZE_MIN/MAX in Controls.
   const [vizSize, setVizSize] = useState(1);
+  // Desktop: the left side panel can collapse to a single bottom-left button,
+  // freeing the whole viewport to centre the app screen.
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
   const hostRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -150,17 +153,48 @@ export default function Page() {
     size: vizSize,
     setSize: setVizSize,
     isMobile,
+    dark: theme === "dark",
     onPickerOpenChange: setPickerOpen,
   };
 
   return (
     <main className={styles.stage}>
-      {/* Desktop: Stream logo top-left, theme toggle top-right, phone centered. */}
+      {/* Desktop: left side panel (brand + settings + collapse), theme toggle
+          top-right, app screen centred in the remaining space. */}
       {!isMobile && (
         <>
-          <div className={styles.brand} aria-hidden={false}>
-            <StreamLogo />
-          </div>
+          <aside
+            className={`${styles.sidePanel} ${panelCollapsed ? styles.sidePanelCollapsed : ""}`}
+            aria-hidden={panelCollapsed}
+          >
+            <div className={styles.panelBrand}>
+              <StreamLogo />
+            </div>
+
+            <div className={styles.panelScroll}>
+              <Controls {...controlsProps} />
+            </div>
+
+            <button
+              className={styles.panelCollapse}
+              aria-label="Collapse panel"
+              tabIndex={panelCollapsed ? -1 : 0}
+              onClick={() => setPanelCollapsed(true)}
+            >
+              <SidebarSimple size={18} />
+            </button>
+          </aside>
+
+          {/* Expand button — bottom-left of the page, only while collapsed. */}
+          <button
+            className={`${styles.panelExpand} ${panelCollapsed ? styles.panelExpandShown : ""}`}
+            aria-label="Expand panel"
+            aria-hidden={!panelCollapsed}
+            tabIndex={panelCollapsed ? 0 : -1}
+            onClick={() => setPanelCollapsed(false)}
+          >
+            <SidebarSimple size={18} />
+          </button>
 
           <button
             className={styles.themeToggle}
@@ -170,45 +204,48 @@ export default function Page() {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          <div
-            className={styles.deviceToggle}
-            role="radiogroup"
-            aria-label="Demo device"
-          >
-            <button
-              role="radio"
-              aria-checked={device === "mobile"}
-              aria-label="Mobile"
-              className={`${styles.deviceToggleItem} ${device === "mobile" ? styles.deviceToggleItemActive : ""}`}
-              onClick={() => setDevice("mobile")}
-            >
-              <DeviceMobile size={18} />
-            </button>
-            <button
-              role="radio"
-              aria-checked={device === "desktop"}
-              aria-label="Desktop"
-              className={`${styles.deviceToggleItem} ${device === "desktop" ? styles.deviceToggleItemActive : ""}`}
-              onClick={() => setDevice("desktop")}
-            >
-              <Monitor size={18} />
-            </button>
-          </div>
+          <div className={`${styles.rightArea} ${panelCollapsed ? styles.rightAreaWide : ""}`}>
+            <Phone
+              viz={viz}
+              colors={colors}
+              state={state}
+              dark={theme === "dark"}
+              vizScale={vizSize}
+              showMenu={false}
+              onMenu={() => {}}
+              onToggleTheme={toggleTheme}
+              variant={device}
+            />
 
-          <Phone
-            viz={viz}
-            colors={colors}
-            state={state}
-            dark={theme === "dark"}
-            vizScale={vizSize}
-            showMenu={false}
-            onMenu={() => {}}
-            onToggleTheme={toggleTheme}
-            variant={device}
-          />
-
-          <div className={styles.controls}>
-            <Controls {...controlsProps} />
+            <div
+              className={styles.deviceToggle}
+              role="radiogroup"
+              aria-label="Demo device"
+            >
+              <span
+                className={styles.deviceToggleThumb}
+                aria-hidden
+                style={{ transform: `translateX(${device === "desktop" ? 36 : 0}px)` }}
+              />
+              <button
+                role="radio"
+                aria-checked={device === "mobile"}
+                aria-label="Mobile"
+                className={`${styles.deviceToggleItem} ${device === "mobile" ? styles.deviceToggleItemActive : ""}`}
+                onClick={() => setDevice("mobile")}
+              >
+                <DeviceMobile size={18} />
+              </button>
+              <button
+                role="radio"
+                aria-checked={device === "desktop"}
+                aria-label="Desktop"
+                className={`${styles.deviceToggleItem} ${device === "desktop" ? styles.deviceToggleItemActive : ""}`}
+                onClick={() => setDevice("desktop")}
+              >
+                <Monitor size={18} />
+              </button>
+            </div>
           </div>
         </>
       )}
