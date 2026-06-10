@@ -546,13 +546,13 @@
   background: linear-gradient(
     to right,
     color-mix(in srgb, var(--text) 45%, transparent) var(--fill),
-    color-mix(in srgb, var(--text) 22%, transparent) var(--fill)
+    var(--control-bg) var(--fill)
   );
 }
 .slider::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 22%, transparent);
+  background: var(--control-bg);
 }
 .slider::-moz-range-progress {
   height: 4px;
@@ -563,7 +563,7 @@
   -webkit-appearance: none;
   appearance: none;
   margin-top: -8px;
-  width: 24px;
+  width: 28px;
   height: 20px;
   border-radius: 999px;
   background: #fff;
@@ -572,7 +572,7 @@
   transition: box-shadow 0.15s ease;
 }
 .slider::-moz-range-thumb {
-  width: 24px;
+  width: 28px;
   height: 20px;
   border-radius: 999px;
   background: #fff;
