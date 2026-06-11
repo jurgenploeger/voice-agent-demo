@@ -10,6 +10,7 @@ export const STATE_ORDER: AgentState[] = [
   "listening",
   "thinking",
   "speaking",
+  "error",
 ];
 
 // Status-line text under the title (kept lowercase to match the original look).
@@ -19,6 +20,7 @@ export const STATE_LABEL: Record<AgentState, string> = {
   listening: "listening",
   thinking: "thinking",
   speaking: "speaking",
+  error: "error",
 };
 
 // Labels for the State control buttons.
@@ -28,4 +30,5 @@ export const STATE_TAB_LABEL: Record<AgentState, string> = {
   listening: "Listening",
   thinking: "Thinking",
   speaking: "Speaking",
+  error: "Error",
 };

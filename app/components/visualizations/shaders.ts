@@ -25,7 +25,6 @@ uniform vec2  uResolution; // drawing-buffer pixels
 uniform float uLevel;      // motion amplitude / energy
 uniform float uBright;     // overall opacity / presence
 uniform float uSat;        // color saturation
-uniform float uOrbit;      // rotational / orbiting motion
 // Motion-pattern weights (one ~1 per state):
 uniform float uLoad;       // bouncing loader sweep  -> connecting
 uniform float uFlow;       // traveling / spinner    -> thinking
@@ -66,7 +65,8 @@ vec3 hsv2rgb(vec3 c) {
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-// Desaturate toward luminance (used for the "thinking" busy look).
+// Desaturate toward luminance (drives the monochrome "error" treatment; the
+// conversational states keep uSat pinned at 1.0).
 vec3 desat(vec3 c, float s) {
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   return mix(vec3(l), c, s);
@@ -97,13 +97,6 @@ float pingpong(float x, float b) {
 // time (see color.ts vividColor) so explicit picks aren't altered here.
 vec3 vivid(vec3 hsv) {
   return hsv2rgb(vec3(hsv.x, clamp(hsv.y + uDark * 0.06, 0.0, 1.0), hsv.z));
-}
-
-// Deep / shadow version of a chosen colour for interior bases & shading —
-// darker and a touch more saturated, derived from the colour itself so it
-// tracks the user's hue and tone rather than a fixed value.
-vec3 deepHue(vec3 hsv) {
-  return hsv2rgb(vec3(hsv.x, clamp(hsv.y * 1.06, 0.0, 1.0), hsv.z * 0.46));
 }
 
 // Tap/click ripple shared by every style: concentric waves spreading out from

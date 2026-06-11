@@ -275,6 +275,12 @@
 .statusDot[data-state="speaking"] {
   animation-duration: 0.85s;
 }
+.statusDot[data-state="error"] {
+  /* Stalled, like the visual: no breathing, just a muted dot. */
+  background: var(--muted);
+  animation: none;
+  opacity: 0.7;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .statusDot {

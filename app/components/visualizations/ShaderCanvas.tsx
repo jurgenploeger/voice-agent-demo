@@ -18,7 +18,8 @@ export type VisualizationProps = {
   dark: boolean; // theme — tunes the halo (clean on white vs glow on dark)
   // How lively the motion is, as a multiplier on every state's animation
   // (amplitude + a gentle speed lift). 1 = the tuned default; 0 ≈ still; 2 =
-  // twice as animated. Presence and colour are untouched, only the movement.
+  // twice as animated. Clamped to [0, 2] — the shaders are only tuned for that
+  // range. Presence and colour are untouched, only the movement.
   expressivity?: number;
   // A tap/click inside the visual; `id` increments per tap so a repeat tap on the
   // same spot still re-triggers the ripple. Position is in the shader's coords()
@@ -47,6 +48,10 @@ const toHSV = (c: Color): HSV => [((((c.h % 360) + 360) % 360) / 360), c.s, c.v]
 type Props = VisualizationProps & {
   fragment: string;
 };
+
+// The shaders are tuned for expressivity 0..2; out-of-range values would push
+// the amplitude/speed scales into untested territory (or invert motion).
+const clampExpressivity = (e: number) => Math.min(2, Math.max(0, e));
 
 // The wrapper fills its parent by default; the canvas fills the wrapper. The
 // component carries NO intrinsic size, so give the parent explicit dimensions
@@ -97,7 +102,7 @@ export default function ShaderCanvas({
   });
   const colorTarget = useRef(buildTarget());
   const stateTarget = useRef<StateParams>(STATE_PARAMS[state]);
-  const expressivityRef = useRef(expressivity);
+  const expressivityRef = useRef(clampExpressivity(expressivity));
   const darkRef = useRef(dark);
   const tapRef = useRef(tap);
   const hoverPropRef = useRef(hover);
@@ -115,7 +120,7 @@ export default function ShaderCanvas({
     stateTarget.current = STATE_PARAMS[state];
   }, [state]);
   useEffect(() => {
-    expressivityRef.current = expressivity;
+    expressivityRef.current = clampExpressivity(expressivity);
   }, [expressivity]);
   useEffect(() => {
     darkRef.current = dark;
@@ -191,7 +196,6 @@ export default function ShaderCanvas({
         uLevel: { value: stateTarget.current.level },
         uBright: { value: stateTarget.current.bright },
         uSat: { value: stateTarget.current.sat },
-        uOrbit: { value: stateTarget.current.orbit },
         uLoad: { value: stateTarget.current.load },
         uFlow: { value: stateTarget.current.flow },
         uFlowSpin: { value: 0 },
@@ -252,7 +256,6 @@ export default function ShaderCanvas({
     let curLevel = stateTarget.current.level;
     let curBright = stateTarget.current.bright;
     let curSat = stateTarget.current.sat;
-    let curOrbit = stateTarget.current.orbit;
     let curLoad = stateTarget.current.load;
     let curFlow = stateTarget.current.flow;
     let curReact = stateTarget.current.react;
@@ -304,7 +307,6 @@ export default function ShaderCanvas({
       curLevel += (st.level * ampScale - curLevel) * 0.08;
       curBright += (st.bright - curBright) * 0.08;
       curSat += (st.sat - curSat) * 0.08;
-      curOrbit += (st.orbit * ampScale - curOrbit) * 0.08;
       curLoad += (st.load * ampScale - curLoad) * 0.08;
       curFlow += (st.flow * ampScale - curFlow) * 0.08;
       curReact += (st.react * ampScale - curReact) * 0.08;
@@ -395,7 +397,6 @@ export default function ShaderCanvas({
       program.uniforms.uLevel.value = curLevel;
       program.uniforms.uBright.value = curBright;
       program.uniforms.uSat.value = curSat;
-      program.uniforms.uOrbit.value = curOrbit;
       program.uniforms.uLoad.value = curLoad;
       program.uniforms.uFlow.value = curFlow;
       // In voice mode, drive reactivity from the live mic level so the visual
