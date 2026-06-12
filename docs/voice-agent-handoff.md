@@ -91,7 +91,7 @@ Defined in [ShaderCanvas.tsx](../app/components/visualizations/ShaderCanvas.tsx)
 | --- | --- | --- | --- | --- | --- |
 | `colors` | `Color[]` (`{h: 0-360, s: 0-1, v: 0-1}`) | required | 1 to 5 entries | Palette. Maps to uniforms `uCol0`..`uCol4` + `uCount`. | Design |
 | `running` | `boolean` | required | true/false | Whether the rAF loop runs. False holds the last frame. Only the visible style should run. | Developer |
-| `state` | `AgentState` | required | `"idle" \| "connecting" \| "listening" \| "thinking" \| "speaking" \| "error"` | Conversational state; selects a row of `STATE_PARAMS` (see section 4). | Developer (agent lifecycle) |
+| `state` | `AgentState` | required | `"idle" \| "connecting" \| "listening" \| "thinking" \| "speaking"` | Conversational state; selects a row of `STATE_PARAMS` (see section 4). | Developer (agent lifecycle) |
 | `dark` | `boolean` | required | true/false | Theme flag. Maps to uniform `uDark` (0/1). Tunes halo brightness, deep-shade depth, overlap treatment. | Developer (theme) |
 | `expressivity` | `number` | `1` | 0 to 2, clamped by the engine | Motion liveliness multiplier. See 3.3. Maps to `uExpressivity` plus JS-side scaling. | Design |
 | `tap` | `{x, y, id} \| null` | `undefined` | position in shader coords (see below); `id` increments per tap | One-shot tap ripple. Maps to `uTap` (position) and `uTapTime` (seconds since tap). | Developer (input wiring) |
@@ -118,7 +118,7 @@ Slots 2 and 3 crossfade from these derived shades to the real colors 2/3 as `uCo
 
 **In-shader tone mapping** (shared helpers in `shaders.ts`):
 - `vivid(hsv)`: renders the user's HSV as-is, except dark mode nudges saturation up by +0.06.
-- `saturate3(c, s)` and `desat(c, s)`: saturation push/pull around luminance. `saturate3` keeps multi-hue blends from going muddy; `desat` (driven by `uSat`) carries the monochrome error treatment.
+- `saturate3(c, s)` and `desat(c, s)`: saturation push/pull around luminance. `saturate3` keeps multi-hue blends from going muddy; `desat` is driven by `uSat`, which every conversational state pins at 1.0, so it is a no-op unless a custom state lowers it.
 
 **Harmonic palette generation** (`shuffleColors` in `color.ts`, demo "Shuffle" button):
 1. Pick a random base hue (0 to 360).
@@ -162,7 +162,7 @@ Every shader shares this uniform set (declared once in the shared GLSL header):
 | `uCol0`..`uCol4` | vec3 | `colors`, lerped | HSV colors (h as 0-1 fraction). |
 | `uCount` | float | `colors.length`, lerped | Active color count, 1 to 5, fractional during crossfade. |
 | `uResolution` | vec2 | drawing buffer | Pixels, for coords and anti-aliasing widths. |
-| `uLevel`, `uBright`, `uSat` | float | `STATE_PARAMS`, lerped, amp-scaled | Intensity scalars (see section 4). `uBright` multiplies alpha everywhere; `uSat` drives `desat` (the error treatment). `uLevel` is uploaded but currently unread by any shader body (see Resolved decisions, item 6). |
+| `uLevel`, `uBright`, `uSat` | float | `STATE_PARAMS`, lerped, amp-scaled | Intensity scalars (see section 4). `uBright` multiplies alpha everywhere; `uSat` drives `desat` (pinned at 1.0 in every state, so currently a no-op). `uLevel` is uploaded but currently unread by any shader body (see Resolved decisions, item 6). |
 | `uLoad`, `uFlow`, `uReact` | float | `STATE_PARAMS`, lerped, amp-scaled | Motion-pattern weights (see section 4). |
 | `uFlowSpin` | float | integrated `tStep * flow` | Flow-gated spin time; advances only while thinking so the thinking rotation eases in/out instead of jumping. |
 | `uOrbSpin` | float | integrated `tStep * (1.0 + 0.5*flow + 0.1*react)` | Orbit phase for Glow's color masses; integration prevents angle jumps on state changes. |
@@ -182,10 +182,10 @@ While voice mode is active, the JS loop overrides reactivity: `uReact = curReact
 `AgentState` (in [states.ts](../app/components/visualizations/states.ts)):
 
 ```
-"idle" | "connecting" | "listening" | "thinking" | "speaking" | "error"
+"idle" | "connecting" | "listening" | "thinking" | "speaking"
 ```
 
-The five conversational states differ **purely by animation**: their `bright` and `sat` are pinned at 1.0, so the palette never dims or desaturates between them. `error` is the single deliberate exception: a monochrome stalled treatment (desaturated, dimmed, near-still) so "not alive" reads through any brand palette without a reserved alarm color. Each state is a row of scalar drivers (`STATE_PARAMS`), uploaded as uniforms after JS-side smoothing:
+The five states differ **purely by animation**: their `bright` and `sat` are pinned at 1.0, so the palette never dims or desaturates between them. Each state is a row of scalar drivers (`STATE_PARAMS`), uploaded as uniforms after JS-side smoothing:
 
 | State | level | speed | bright | sat | load | flow | react | Reads as |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -194,9 +194,8 @@ The five conversational states differ **purely by animation**: their `bright` an
 | listening | 0.6 | 0.9 | 1.0 | 1.0 | 0.0 | 0.0 | 0.45 | Gentle responsive expand-contract |
 | thinking | 0.6 | 1.25 | 1.0 | 1.0 | 0.0 | **1.0** | 0.0 | Slow rigid rotation / traveling wave ("busy" via motion) |
 | speaking | 1.25 | 1.25 | 1.0 | 1.0 | 0.0 | 0.0 | **1.0** | Strong reactive amplitude with natural pauses |
-| error | 0.1 | 0.15 | 0.6 | 0.15 | 0.0 | 0.0 | 0.0 | Monochrome and stalled ("not alive") |
 
-The three motion-pattern weights work LiveKit-style: exactly one is ~1 per conversational state, and because each driver is lerped at 0.08 per frame, switching states **crossfades between motion patterns** rather than cutting. The error treatment needs no shader changes: it reuses the `uSat` (`desat`) and `uBright` (alpha) paths already wired into every shader. The demo's status dot mirrors it with a static muted dot (no breathe animation).
+The three motion-pattern weights work LiveKit-style: exactly one is ~1 per state, and because each driver is lerped at 0.08 per frame, switching states **crossfades between motion patterns** rather than cutting.
 
 How each shader interprets the states, briefly:
 
@@ -204,7 +203,6 @@ How each shader interprets the states, briefly:
 - **Thinking**: driven by `uFlowSpin` (Orb/Glow: slow rigid rotation of the color field at 0.30 radians per flow-gated time unit; Bars: traveling wave; Wave: higher frequency; Ring: nothing special beyond speed).
 - **Connecting**: `uLoad` drives an opacity breath everywhere (e.g. `mix(1.0, 0.5 + 0.4*sin(t*2.0), uLoad)`) plus a style-specific loader: side-to-side packet sweep (Wave), bump sweeping across the bars (Bars), all-bars-together pulse (Ring), size breath (Glow/Sphere).
 - **Idle**: low level and speed; small react floor (0.12) keeps a faint shimmer.
-- **Error**: no pattern weight; `uSat` 0.15 desaturates via `desat()`, `uBright` 0.6 dims the alpha, and speed 0.15 nearly freezes the motion. All three effects ease in through the same 0.08-per-frame driver lerp.
 
 **Demo chat lifecycle** (Phone.tsx, demo-only but a useful reference): sending a message sets the agent to `thinking` for a randomized 650 to 2000 ms, then `speaking` while the reply types out (16 to 38 ms per character), then `idle` 700 ms after typing completes. Outside chat mode the manually selected state always wins. The status dot and label track this `effectiveState`.
 
@@ -296,7 +294,7 @@ Interactions only engage when the pointer is inside the active style's hit regio
 | Swatch add/remove (width + margin collapse + fade) | 0.3 s cubic-bezier(0.4, 0, 0.2, 1) | `page.module.css` `swatchIn`/`swatchOut` |
 | Voice composer enter | 0.34 s cubic-bezier(0.2, 0.7, 0.2, 1) (`voiceFieldIn`), waveform 0.42 s same curve (`waveIn`) | `Phone.module.css` |
 | Recording dot pulse | 1.4 s ease-in-out infinite (`recPulse`) | `Phone.module.css` |
-| Status dot breathe | scale 0.85 to 1.15, opacity 0.35 to 1, ease-in-out infinite; duration per state: idle 3.8 s, connecting 1.3 s, listening 2.6 s, thinking 1.6 s, speaking 0.85 s; error shows a static muted dot (no animation, opacity 0.7) | `Phone.module.css` `breathe` |
+| Status dot breathe | scale 0.85 to 1.15, opacity 0.35 to 1, ease-in-out infinite; duration per state: idle 3.8 s, connecting 1.3 s, listening 2.6 s, thinking 1.6 s, speaking 0.85 s | `Phone.module.css` `breathe` |
 | "Thinking..." text shimmer | background-position sweep, 1.5 s linear infinite | `Phone.module.css` `textShimmer` |
 | Typing reveal | one character per 16 + random(0..22) ms | `Phone.tsx` `startTyping` |
 | Theme crossfade | background/color 0.2 s ease on most chrome (message bubbles and screen background intentionally snap) | `globals.css`, `Phone.module.css` |
@@ -441,7 +439,7 @@ These were open questions in the first revision of this document; they are now d
 2. **Expressivity is clamped to 0..2 by the engine.** The shaders are tuned only for that range; the clamp lives in `ShaderCanvas` so the documented contract is true regardless of what the host passes. Ports must clamp identically.
 3. **`uOrbit` was dead and has been removed** from `StateParams`, the engine, and the GLSL header. Its job was taken over by the integrated `uOrbSpin` phase. Do not port it.
 4. **`deepHue` was dead and has been removed** from the shared GLSL header. Each shader derives its own deep shades inline with per-style tuning. Do not port it.
-5. **Error state: monochrome stalled, no red.** `"error"` is part of the `AgentState` enum (added before ports start so the public type stays stable), with the parameter row in section 4. It deliberately breaks the sat/bright pinning to read as "not alive" through any brand palette; color-only alarm signaling was rejected for brand-clash and accessibility reasons. The semantic belongs to the host UI (label, dot), not a reserved color.
+5. **Error state: not part of the engine.** An `"error"` variant (monochrome stalled treatment) was briefly added and then removed; `AgentState` carries only the five conversational states, and ports should not implement one. Error/disconnected semantics belong to the host UI (label, status dot). If a future revision reinstates it, the `uSat` (`desat`) and `uBright` (alpha) paths already wired into every shader can reproduce the muted treatment without shader changes; color-only alarm signaling (a reserved red) remains rejected for brand-clash and accessibility reasons.
 
 One item remains open:
 
