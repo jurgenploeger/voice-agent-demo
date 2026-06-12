@@ -6,8 +6,7 @@ export type AgentState =
   | "connecting"
   | "listening"
   | "thinking"
-  | "speaking"
-  | "error";
+  | "speaking";
 
 // NOTE: presentation-only maps (status labels, button labels, display order)
 // are intentionally NOT here — they're demo concerns, not engine concerns. See
@@ -42,9 +41,7 @@ export type StateParams = {
 // Colours stay FULL across the conversational states — sat and bright are
 // pinned to 1.0 so the palette never dims or desaturates; those states differ
 // purely by ANIMATION (the speed/level + load/flow/react motion-pattern weights
-// below), not by tone. ERROR is the single deliberate exception: a monochrome,
-// stalled treatment (desaturated + dimmed + near-still) so "not alive" reads
-// through the customer's palette without a reserved alarm colour.
+// below), not by tone.
 export const STATE_PARAMS: Record<AgentState, StateParams> = {
   // calm + slow, barely-there shimmer — resting but ready (full colour)
   idle:       { level: 0.2,  speed: 0.4,  bright: 1.0, sat: 1.0,  load: 0.0, flow: 0.0, react: 0.12 },
@@ -56,6 +53,4 @@ export const STATE_PARAMS: Record<AgentState, StateParams> = {
   thinking:   { level: 0.6,  speed: 1.25, bright: 1.0, sat: 1.0,  load: 0.0, flow: 1.0, react: 0.0 },
   // strong reactive amplitude, natural speaking pace
   speaking:   { level: 1.25, speed: 1.25, bright: 1.0, sat: 1.0,  load: 0.0, flow: 0.0, react: 1.0 },
-  // monochrome + stalled — desaturated, dimmed, near-still ("not alive")
-  error:      { level: 0.1,  speed: 0.15, bright: 0.6, sat: 0.15, load: 0.0, flow: 0.0, react: 0.0 },
 };

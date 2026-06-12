@@ -65,8 +65,8 @@ vec3 hsv2rgb(vec3 c) {
   return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-// Desaturate toward luminance (drives the monochrome "error" treatment; the
-// conversational states keep uSat pinned at 1.0).
+// Desaturate toward luminance (the conversational states keep uSat pinned at
+// 1.0, so this is a no-op unless a custom state lowers it).
 vec3 desat(vec3 c, float s) {
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   return mix(vec3(l), c, s);
